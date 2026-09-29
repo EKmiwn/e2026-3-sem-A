@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Amitylux – Experience Finder</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <style>:root { --brand: #1f2a44; --brand-dark: #121a2e; --brand-soft: #ece8dc; }</style>
+</head>
+<body data-api-port="5103">
+  <header>
+    <div>
+      <h1>Amitylux</h1>
+      <p>Private, small-group and tailor-made city experiences with local experts</p>
+    </div>
+    <button class="secondary" id="help-button">Talk to a person</button>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="needs">1. Your trip</button>
+    <button data-tab="compare">2. Compare</button>
+    <button data-tab="recommend">3. Recommendation</button>
+    <button data-tab="request">4. Summary &amp; send</button>
+    <button data-tab="staff">Staff: inquiries</button>
+  </nav>
+
+  <main>
+    <!-- F-01 Needs assessment -->
+    <section class="tab active" id="tab-needs">
+      <div class="card">
+        <h2>Tell us about your trip</h2>
+        <p class="muted">Takes about two minutes. You can go back and change your answers at any time.</p>
+        <form id="needs-form">
+          <div class="row">
+            <label>Destination <select name="destination_id" data-number required></select></label>
+            <label>From <input type="date" name="date_from"></label>
+            <label>To <input type="date" name="date_to"></label>
+          </div>
+          <div class="row">
+            <label>Who is travelling?
+              <select name="group_type">
+                <option value="couple">Couple</option><option value="family">Family</option>
+                <option value="friends">Friends</option><option value="solo">Solo</option>
+              </select>
+            </label>
+            <label>Group size <input type="number" name="group_size" min="1" max="60" value="2"></label>
+            <label>Preferred language
+              <select name="language">
+                <option>English</option><option>Danish</option><option>German</option>
+                <option>Spanish</option><option>French</option><option>Italian</option>
+              </select>
+            </label>
+          </div>
+          <div class="row">
+            <label>Pace and flexibility
+              <select name="pace">
+                <option value="fixed">Fixed schedule is fine</option>
+                <option value="relaxed" selected>Relaxed – adapt on the day</option>
+                <option value="flexible">Fully flexible</option>
+              </select>
+            </label>
+            <label>Approximate budget per person
+              <select name="budget">
+                <option value="low">Under €60</option><option value="medium" selected>€60–120</option>
+                <option value="high">€120–250</option><option value="premium">€250+</option>
+              </select>
+            </label>
+          </div>
+          <fieldset>
+            <legend>Interests</legend>
+            <label><input type="checkbox" name="interests" value="history" data-list checked> History</label>
+            <label><input type="checkbox" name="interests" value="art" data-list> Art</label>
+            <label><input type="checkbox" name="interests" value="food" data-list> Food</label>
+            <label><input type="checkbox" name="interests" value="architecture" data-list> Architecture</label>
+            <label><input type="checkbox" name="interests" value="nature" data-list> Nature</label>
+            <label><input type="checkbox" name="interests" value="nightlife" data-list> Nightlife</label>
+            <label><input type="checkbox" name="interests" value="hidden gems" data-list> Hidden gems</label>
+          </fieldset>
+          <div class="actions">
+            <button>See my recommendation</button>
+            <button type="button" class="secondary" data-goto="compare">Compare experience types first</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <!-- F-02 Comparison -->
+    <section class="tab" id="tab-compare">
+      <div class="card">
+        <h2>Public, private or customised – what is the difference?</h2>
+        <div id="compare-table"></div>
+      </div>
+    </section>
+
+    <!-- F-03 – F-06, F-10, F-12 – F-14 Recommendation -->
+    <section class="tab" id="tab-recommend">
+      <div id="recommendation"><p class="empty">Answer the questions in step 1 to get a recommendation.</p></div>
+      <div class="card">
+        <h2>Browse and filter experiences</h2>
+        <form class="toolbar" id="filter-form">
+          <label>Type
+            <select name="type"><option value="">All</option><option value="public">Public</option>
+              <option value="private">Private</option><option value="customised">Customised</option></select>
+          </label>
+          <label>Max price level
+            <select name="price_level"><option value="">Any</option><option value="low">Low</option>
+              <option value="medium">Medium</option><option value="high">High</option><option value="premium">Premium</option></select>
+          </label>
+          <label>Language
+            <select name="language"><option value="">Any</option><option>English</option><option>Danish</option>
+              <option>German</option><option>Spanish</option><option>French</option><option>Italian</option></select>
+          </label>
+          <label>Group size <input type="number" name="group_size" min="1" style="width:90px"></label>
+          <label>Interest
+            <select name="interest"><option value="">Any</option><option>history</option><option>art</option>
+              <option>food</option><option>architecture</option><option>nature</option><option>nightlife</option>
+              <option>hidden gems</option></select>
+          </label>
+          <button type="reset" class="secondary">Reset filters</button>
+        </form>
+        <p class="muted" id="active-filters"></p>
+        <div class="grid" id="experience-cards"></div>
+      </div>
+    </section>
+
+    <!-- F-07, F-08, F-11, NF-07 Summary and hand-over -->
+    <section class="tab" id="tab-request">
+      <div class="grid wide">
+        <div class="card">
+          <h2>Add-ons and guide wishes</h2>
+          <form id="request-form">
+            <fieldset id="addon-list"><legend>Add-ons for a private / customised experience</legend></fieldset>
+            <div class="row">
+              <label>Guide language <input name="guide_language" placeholder="e.g. German"></label>
+              <label>Guide focus <input name="guide_focus" placeholder="e.g. Royal history"></label>
+              <label>Guide style <input name="guide_style" placeholder="e.g. Storyteller, child friendly"></label>
+            </div>
+            <label>Anything else we should know? <textarea name="notes"></textarea></label>
+            <h3>Your contact details</h3>
+            <p class="muted">Only used to answer this request. Shown in the summary before you send.</p>
+            <div class="row">
+              <label>Name <input name="contact_name" required></label>
+              <label>E-mail <input type="email" name="contact_email" required></label>
+              <label>Phone (optional) <input name="contact_phone"></label>
+            </div>
+            <button>Send request to Amitylux</button>
+          </form>
+        </div>
+        <div class="card">
+          <h2>Summary – what we will receive</h2>
+          <div id="summary"></div>
+          <div id="receipt"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- F-15 Staff view -->
+    <section class="tab" id="tab-staff">
+      <div class="grid wide">
+        <div class="card">
+          <h2>Incoming inquiries</h2>
+          <div id="inquiry-table"></div>
+          <h3 style="margin-top:16px">Help requests</h3>
+          <div id="help-table"></div>
+        </div>
+        <div class="card">
+          <h2>Standardised brief</h2>
+          <div id="brief"><p class="empty">Select an inquiry to see its brief.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <details class="card">
+      <summary>Latest JSON response from the API</summary>
+      <pre id="last-response" class="json">No calls yet</pre>
+    </details>
+  </main>
+
+  <!-- F-09 Personal help, available on every step -->
+  <dialog id="help-dialog" class="card">
+    <h2>Talk to a person</h2>
+    <p class="muted">A local Amitylux expert contacts you. Your answers so far are kept.</p>
+    <form id="help-form" method="dialog">
+      <label>Name <input name="name" required></label>
+      <label>E-mail or phone <input name="contact" required></label>
+      <label>What can we help with? <textarea name="context"></textarea></label>
+      <div class="actions"><button>Contact me</button><button type="button" class="secondary" id="help-close">Close</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast"></div>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

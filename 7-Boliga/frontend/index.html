@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Boliga Insight Hub</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <style>:root { --brand: #c8323a; --brand-dark: #9c2329; --brand-soft: #fbe8e9; }</style>
+  <style>
+    .chat { display: flex; flex-direction: column; gap: 8px; max-height: 420px; overflow-y: auto; margin-bottom: 12px; }
+    .bubble { padding: 10px 12px; border-radius: 12px; max-width: 85%; }
+    .bubble.bruger { align-self: flex-end; background: var(--brand); color: #fff; }
+    .bubble.ai { align-self: flex-start; background: var(--brand-soft); }
+    .bubble small { display: block; margin-top: 4px; opacity: 0.75; }
+    abbr { cursor: help; }
+  </style>
+</head>
+<body data-api-port="5107">
+  <header>
+    <div>
+      <h1>Boliga Insight Hub</h1>
+      <p>Al data om boligen ét sted – forklaret i almindeligt sprog</p>
+    </div>
+    <label style="color:#fff">Bruger
+      <select id="user-select"></select>
+    </label>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="search">Søg bolig</button>
+    <button data-tab="hub">Insight Hub</button>
+    <button data-tab="saved">Gemte og sammenlign</button>
+    <button data-tab="admin">Boligdata (admin)</button>
+  </nav>
+
+  <main>
+    <section class="tab active" id="tab-search">
+      <div class="card">
+        <form class="toolbar" id="search-form">
+          <label>Adresse, by eller postnr. <input name="q" placeholder="fx Hvidovre"></label>
+          <label>Maks. pris <input type="number" name="max_price" step="100000"></label>
+          <label>Min. m² <input type="number" name="min_size"></label>
+          <label>Type
+            <select name="property_type"><option value="">Alle</option><option>Villa</option><option>Ejerlejlighed</option><option>Rækkehus</option></select>
+          </label>
+          <button>Søg</button>
+        </form>
+      </div>
+      <div class="grid" id="results"></div>
+    </section>
+
+    <section class="tab" id="tab-hub">
+      <div id="hub"><p class="empty">Vælg en bolig under "Søg bolig".</p></div>
+    </section>
+
+    <section class="tab" id="tab-saved">
+      <div class="card">
+        <h2>Gemte boliger</h2>
+        <p class="muted">Markér 2–4 boliger og sammenlign dem side om side.</p>
+        <div id="saved-list"></div>
+        <div class="actions"><button id="compare-button">Sammenlign valgte</button></div>
+      </div>
+      <div class="card"><div id="compare-table"></div></div>
+    </section>
+
+    <section class="tab" id="tab-admin">
+      <div class="card">
+        <h2>Boligdata (CRUD)</h2>
+        <form id="property-form">
+          <input type="hidden" name="id">
+          <div class="row">
+            <label>Adresse <input name="address" required></label>
+            <label>Postnr. <input name="postcode" required></label>
+            <label>By <input name="city" required></label>
+            <label>Type <select name="property_type"><option>Villa</option><option>Ejerlejlighed</option><option>Rækkehus</option></select></label>
+          </div>
+          <div class="row">
+            <label>m² <input type="number" name="size_m2" required></label>
+            <label>Værelser <input type="number" name="rooms"></label>
+            <label>Byggeår <input type="number" name="built_year"></label>
+            <label>Energimærke <input name="energy_label"></label>
+          </div>
+          <div class="row">
+            <label>Udbudspris <input type="number" name="list_price" required></label>
+            <label>AI-vurdering <input type="number" name="ai_valuation"></label>
+            <label>Sat til salg <input type="date" name="listed_date" required></label>
+            <label>Salgskanal <select name="sales_channel"><option>Mægler</option><option>Selvsalg</option></select></label>
+          </div>
+          <div class="actions"><button>Gem bolig</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
+        </form>
+        <div id="property-table"></div>
+      </div>
+    </section>
+
+    <details class="card">
+      <summary>Seneste JSON-svar fra API'et</summary>
+      <pre id="last-response" class="json">Ingen kald endnu</pre>
+    </details>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

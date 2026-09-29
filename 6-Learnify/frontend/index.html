@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Learnify – Læringsrum 2.0</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <style>:root { --brand: #5b3fa6; --brand-dark: #3f2a78; --brand-soft: #eeeafa; }</style>
+  <style>
+    .scale { display: flex; gap: 6px; flex-wrap: wrap; }
+    .scale label { display: inline-flex; flex-direction: column; align-items: center; font-size: 1.6rem; cursor: pointer; padding: 6px 10px; border: 2px solid var(--border); border-radius: 12px; color: var(--text); }
+    .scale input { display: none; }
+    .scale label:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
+    .scale small { font-size: 0.7rem; color: var(--muted); }
+    .bar { height: 10px; background: var(--border); border-radius: 5px; overflow: hidden; min-width: 120px; }
+    .bar span { display: block; height: 100%; background: var(--brand); }
+  </style>
+</head>
+<body data-api-port="5106">
+  <header>
+    <div>
+      <h1>Learnify</h1>
+      <p>Sig din mening om trivsel, læring og klasselokalet</p>
+    </div>
+    <div id="who" style="color:#fff"></div>
+  </header>
+
+  <nav class="tabs" id="tabs" hidden>
+    <button data-tab="survey" data-role="elev">Besvar</button>
+    <button data-tab="history" data-role="elev">Min udvikling</button>
+    <button data-tab="results" data-role="lærer administrator">Resultater</button>
+    <button data-tab="trend" data-role="lærer administrator">Udvikling over tid</button>
+    <button data-tab="overview" data-role="administrator">Skoleoverblik</button>
+    <button data-tab="manage" data-role="administrator">Spørgsmål og elever</button>
+  </nav>
+
+  <main>
+    <!-- Login -->
+    <section class="card" id="login">
+      <h2>Log ind</h2>
+      <form id="login-form" class="toolbar">
+        <label>Brugernavn <input name="username" required autocomplete="username"></label>
+        <button>Log ind</button>
+      </form>
+      <p class="muted">Testbrugere: elev <code>emma</code> eller <code>william</code> · lærer <code>lise</code> · administrator <code>anna</code></p>
+    </section>
+
+    <!-- Elev -->
+    <section class="tab" id="tab-survey">
+      <div class="card">
+        <h2>Hvordan har du det i skolen i denne uge? <span class="muted" id="period"></span></h2>
+        <p class="muted">Dine svar er fortrolige. Læreren ser kun resultater for hele klassen.</p>
+        <form id="survey-form"></form>
+        <div id="survey-result"></div>
+      </div>
+    </section>
+    <section class="tab" id="tab-history">
+      <div class="card">
+        <h2>Min udvikling</h2>
+        <div id="history-table"></div>
+      </div>
+    </section>
+
+    <!-- Lærer -->
+    <section class="tab" id="tab-results">
+      <div class="card">
+        <form class="toolbar" id="results-form">
+          <label>Klasse <select name="class_id"></select></label>
+          <label>Uge <select name="period"></select></label>
+        </form>
+        <div class="kpis" id="result-kpis"></div>
+        <div id="result-table"></div>
+        <h3>Anonyme kommentarer</h3>
+        <ul class="list" id="comment-list"></ul>
+      </div>
+    </section>
+    <section class="tab" id="tab-trend">
+      <div class="card">
+        <form class="toolbar" id="trend-form">
+          <label>Klasse <select name="class_id"></select></label>
+        </form>
+        <p class="muted">Gennemsnit (1–5) og andel positive svar (4–5) pr. uge.</p>
+        <div id="trend-table"></div>
+      </div>
+    </section>
+
+    <!-- Administrator (Læringsrum 2.0) -->
+    <section class="tab" id="tab-overview">
+      <div class="card">
+        <h2>Alle klasser – seneste uge sammenlignet med første måling</h2>
+        <div id="overview-table"></div>
+      </div>
+    </section>
+    <section class="tab" id="tab-manage">
+      <div class="grid wide">
+        <div class="card">
+          <h2>Spørgsmål</h2>
+          <form id="question-form">
+            <input type="hidden" name="id">
+            <label>Spørgsmål <input name="text" required></label>
+            <div class="row">
+              <label>Kategori
+                <select name="category"><option>trivsel</option><option>læring</option><option>møbler</option><option>miljø</option></select>
+              </label>
+              <label>Aktiv <select name="active" data-number><option value="1">Ja</option><option value="0">Nej</option></select></label>
+            </div>
+            <div class="actions"><button>Gem spørgsmål</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
+          </form>
+          <div id="question-table"></div>
+        </div>
+        <div class="card">
+          <h2>Elever</h2>
+          <form id="student-form">
+            <input type="hidden" name="id">
+            <div class="row">
+              <label>Navn <input name="name" required></label>
+              <label>Brugernavn <input name="username" required></label>
+              <label>Klasse <select name="class_id" data-number required></select></label>
+            </div>
+            <div class="actions"><button>Gem elev</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
+          </form>
+          <div id="student-table"></div>
+        </div>
+      </div>
+    </section>
+
+    <details class="card">
+      <summary>Seneste JSON-svar fra API'et</summary>
+      <pre id="last-response" class="json">Ingen kald endnu</pre>
+    </details>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StockUP – Strandvejsristeriet</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <style>:root { --brand: #6b4226; --brand-dark: #4a2c17; --brand-soft: #f3ebe4; }</style>
+</head>
+<body data-api-port="5101">
+  <header>
+    <div>
+      <h1>StockUP</h1>
+      <p>Lager af grønne kaffesække og salgsklare poser · Strandvejsristeriet</p>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="dashboard">Dashboard</button>
+    <button data-tab="register">Registrér</button>
+    <button data-tab="catalog">Råkaffe og varer</button>
+    <button data-tab="movements">Bevægelser</button>
+  </nav>
+
+  <main>
+    <!-- Dashboard -->
+    <section class="tab active" id="tab-dashboard">
+      <div class="kpis" id="kpis"></div>
+      <div class="card">
+        <h2>Sække på lager</h2>
+        <div id="sack-table"></div>
+      </div>
+      <div class="card">
+        <h2>Salgsklare varer</h2>
+        <div id="product-table"></div>
+      </div>
+    </section>
+
+    <!-- Registrering -->
+    <section class="tab" id="tab-register">
+      <div class="grid">
+        <div class="card">
+          <h2>Registrér ristning</h2>
+          <p class="muted">Vælg sæk og vare. Systemet trækker altid 25 kg.</p>
+          <form id="roast-form">
+            <label>Sæk <select name="sack_id" data-number required></select></label>
+            <label>Vare <select name="product_id" data-number required></select></label>
+            <label>Antal poser (talt) <input type="number" name="bags_produced" min="1" placeholder="Forslag vises"></label>
+            <label>Udført af <input name="performed_by" placeholder="Navn"></label>
+            <button>Registrér ristning</button>
+          </form>
+        </div>
+        <div class="card">
+          <h2>Registrér salg</h2>
+          <form id="sale-form">
+            <label>Vare <select name="product_id" data-number required></select></label>
+            <label>Antal poser <input type="number" name="bags" min="1" required></label>
+            <label>Kanal
+              <select name="channel">
+                <option>BUTIK</option><option>WEBSHOP</option><option>CAFE</option><option>ENGROS</option>
+              </select>
+            </label>
+            <button>Registrér salg</button>
+          </form>
+        </div>
+        <div class="card">
+          <h2>Modtag sæk</h2>
+          <p class="muted">En ny sæk oprettes altid med 80 kg.</p>
+          <form id="sack-form">
+            <label>Råkaffe <select name="green_coffee_id" data-number required></select></label>
+            <label>Lot-nummer <input name="lot_number" required placeholder="fx ET-26-05"></label>
+            <label>Modtaget <input type="date" name="received_date"></label>
+            <button>Modtag sæk</button>
+          </form>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Seneste ristninger</h2>
+        <div id="roast-table"></div>
+      </div>
+    </section>
+
+    <!-- CRUD for råkaffe og varer -->
+    <section class="tab" id="tab-catalog">
+      <div class="grid wide">
+        <div class="card">
+          <h2 id="coffee-form-title">Opret råkaffetype</h2>
+          <form id="coffee-form">
+            <input type="hidden" name="id">
+            <div class="row">
+              <label>Navn <input name="name" required></label>
+              <label>Oprindelse <input name="origin"></label>
+            </div>
+            <div class="row">
+              <label>Leverandør <input name="supplier"></label>
+              <label>Kr. pr. kg <input type="number" step="0.5" name="cost_per_kg"></label>
+              <label>Min. sække <input type="number" name="min_sacks" min="0"></label>
+            </div>
+            <div class="actions"><button>Gem</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
+          </form>
+          <div id="coffee-table"></div>
+        </div>
+        <div class="card">
+          <h2 id="product-form-title">Opret vare</h2>
+          <form id="product-form">
+            <input type="hidden" name="id">
+            <div class="row">
+              <label>SKU <input name="sku" required></label>
+              <label>Navn <input name="name" required></label>
+            </div>
+            <div class="row">
+              <label>Posestørrelse (g) <input type="number" name="bag_size_g" min="50"></label>
+              <label>Min. poser <input type="number" name="min_bags" min="0"></label>
+              <label>Pris <input type="number" name="price" step="1"></label>
+            </div>
+            <label>Råkaffe <select name="green_coffee_id" data-number></select></label>
+            <div class="actions"><button>Gem</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
+          </form>
+          <div id="catalog-product-table"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bevægelser -->
+    <section class="tab" id="tab-movements">
+      <div class="card">
+        <h2>Lagerbevægelser (append-only log)</h2>
+        <div id="movement-table"></div>
+      </div>
+    </section>
+
+    <details class="card">
+      <summary>Seneste JSON-svar fra API'et</summary>
+      <pre id="last-response" class="json">Ingen kald endnu</pre>
+    </details>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

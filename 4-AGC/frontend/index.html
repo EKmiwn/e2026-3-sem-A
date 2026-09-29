@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AGC QC Informationshub</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <style>:root { --brand: #0b5c8a; --brand-dark: #083f5f; --brand-soft: #e2eff7; }</style>
+</head>
+<body data-api-port="5104">
+  <header>
+    <div>
+      <h1>QC Informationshub</h1>
+      <p>AGC Biologics Copenhagen · automatisk indsamling, kontrol og målrettet deling</p>
+    </div>
+    <label style="color:#fff">Logget ind som (testkonto)
+      <select id="user-select"></select>
+    </label>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="review">Til kontrol</button>
+    <button data-tab="search">Søg</button>
+    <button data-tab="shared">Delt med mig</button>
+    <button data-tab="feed">Kilder og testfeed</button>
+    <button data-tab="admin">Administration</button>
+  </nav>
+
+  <main>
+    <!-- Til kontrol (leder) -->
+    <section class="tab active" id="tab-review">
+      <div class="grid wide">
+        <div class="card">
+          <h2>Til kontrol</h2>
+          <p class="muted">Poster, som systemet har vurderet relevante eller tvetydige. Intet deles automatisk.</p>
+          <div id="review-table"></div>
+        </div>
+        <div class="card" id="detail"><p class="empty">Vælg en post for at kontrollere den mod kilden.</p></div>
+      </div>
+    </section>
+
+    <!-- Søg -->
+    <section class="tab" id="tab-search">
+      <div class="card">
+        <form class="toolbar" id="search-form">
+          <label>Søg i titel og resumé <input name="q" placeholder="fx vagtplan"></label>
+          <label>Kategori <select name="category_id"></select></label>
+          <label>Kildesystem
+            <select name="system"><option value="">Alle</option><option>Outlook</option><option>Teams</option><option>Manuel</option></select>
+          </label>
+          <label>Status
+            <select name="status"><option value="">Alle</option><option>UDKAST</option><option>GODKENDT</option></select>
+          </label>
+          <button>Søg</button>
+        </form>
+        <div id="search-results"></div>
+      </div>
+    </section>
+
+    <!-- Delt med mig (medarbejder) -->
+    <section class="tab" id="tab-shared">
+      <div class="card">
+        <h2>Delt med mig</h2>
+        <div id="shared-list"></div>
+      </div>
+    </section>
+
+    <!-- Kilder -->
+    <section class="tab" id="tab-feed">
+      <div class="grid wide">
+        <div class="card">
+          <h2>Simuleret Outlook/Teams-connector</h2>
+          <p class="muted">I prototypen repræsenteres Outlook og Teams af et testfeed. Lederen skal ikke kopiere noget ind.</p>
+          <div class="actions"><button id="simulate-button">Modtag næste testpost</button></div>
+          <pre class="json" id="ingest-result" style="margin-top:12px">Intet modtaget endnu</pre>
+          <div id="feed-table"></div>
+        </div>
+        <div class="card">
+          <h2>Manuel note (supplement)</h2>
+          <p class="muted">Kun til information, der ikke findes i de integrerede kanaler – fx en telefonsamtale.</p>
+          <form id="note-form">
+            <label>Titel <input name="title" required></label>
+            <label>Tekst <textarea name="text" required></textarea></label>
+            <button>Opret note</button>
+          </form>
+          <h3 style="margin-top:16px">Hændelseslog</h3>
+          <div id="event-table"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Administration -->
+    <section class="tab" id="tab-admin">
+      <div class="grid wide">
+        <div class="card">
+          <h2>Kategorier og nøgleord</h2>
+          <form id="category-form">
+            <input type="hidden" name="id">
+            <label>Navn <input name="name" required></label>
+            <label>Nøgleord (kommasepareret) <input name="keywords" required></label>
+            <div class="actions"><button>Gem kategori</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
+          </form>
+          <div id="category-table"></div>
+        </div>
+        <div class="card">
+          <h2>Kategoriadgang</h2>
+          <form id="access-form">
+            <input type="hidden" name="id">
+            <div class="row">
+              <label>Bruger <select name="user_id" data-number required></select></label>
+              <label>Kategori <select name="category_id" data-number required></select></label>
+              <label>Rettighed <select name="permission"><option>læs</option><option>redigér</option></select></label>
+            </div>
+            <button>Tilføj adgang</button>
+          </form>
+          <div id="access-table"></div>
+        </div>
+      </div>
+    </section>
+
+    <details class="card">
+      <summary>Seneste JSON-svar fra API'et</summary>
+      <pre id="last-response" class="json">Ingen kald endnu</pre>
+    </details>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

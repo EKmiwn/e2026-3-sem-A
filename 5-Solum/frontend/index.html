@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Solum – Fejlfinding og vidensdeling</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <style>:root { --brand: #c75000; --brand-dark: #943b00; --brand-soft: #fbeee4; }</style>
+  <style>
+    /* Store trykflader – appen bruges med handsker ude på pladsen */
+    .machine-button { font-size: 1.1rem; padding: 18px; text-align: left; background: var(--surface); color: var(--text); border: 2px solid var(--border); }
+    .machine-button:hover { background: var(--brand-soft); }
+    .machine-button .icon { font-size: 2.2rem; display: block; }
+    .steps li { font-size: 1.1rem; padding: 10px 0; }
+    .big { font-size: 1.1rem; padding: 14px 20px; }
+    .matrix td { text-align: center; cursor: pointer; }
+  </style>
+</head>
+<body data-api-port="5105">
+  <header>
+    <div>
+      <h1>Solum · Fejlfinding</h1>
+      <p>Trin-for-trin guides og delt viden om maskinparken</p>
+    </div>
+    <label style="color:#fff">Jeg er
+      <select id="employee-select"></select>
+    </label>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="machines">Maskiner</button>
+    <button data-tab="troubleshoot">Fejlfinding</button>
+    <button data-tab="contribute">Bidrag med viden</button>
+    <button data-tab="competence">Kompetenceoverblik</button>
+    <button data-tab="log">Fejllog</button>
+  </nav>
+
+  <main>
+    <section class="tab active" id="tab-machines">
+      <div class="grid" id="machine-grid"></div>
+    </section>
+
+    <section class="tab" id="tab-troubleshoot">
+      <div id="machine-view"><p class="empty">Vælg en maskine under "Maskiner".</p></div>
+      <div id="guide-view"></div>
+    </section>
+
+    <section class="tab" id="tab-contribute">
+      <div class="grid wide">
+        <div class="card">
+          <h2 id="article-form-title">Ny vidensartikel</h2>
+          <p class="muted">Kun erfarne medarbejdere kan gemme. Skriv ét trin pr. linje.</p>
+          <form id="article-form">
+            <input type="hidden" name="id">
+            <div class="row">
+              <label>Maskine <select name="machine_id" data-number required></select></label>
+              <label>Forfatter <select name="author_id" data-number required></select></label>
+            </div>
+            <div class="row">
+              <label>Fejltype <input name="fault_type" required placeholder="fx Hydraulik"></label>
+              <label>Niveau <select name="level"><option>grundlæggende</option><option>dybdegående</option></select></label>
+            </div>
+            <label>Titel <input name="title" required></label>
+            <label>Løsningstrin (ét pr. linje) <textarea name="steps" required rows="6"></textarea></label>
+            <label>Symptomer / fejlkoder (kommasepareret) <input name="tags" placeholder="stopper, E-101"></label>
+            <label>Link til billede eller video <input name="media_url" type="url"></label>
+            <div class="actions"><button>Gem artikel</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
+          </form>
+        </div>
+        <div class="card">
+          <h2>Alle vidensartikler</h2>
+          <div id="article-table"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-competence">
+      <div class="card">
+        <h2>Hvem kan betjene hvilke maskiner?</h2>
+        <p class="muted">Klik på en celle for at ændre niveau: – → under oplæring → godkendt → ekspert → –. Røde kolonner har højst én godkendt operatør.</p>
+        <div id="matrix"></div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-log">
+      <div class="card">
+        <h2>Fejllog</h2>
+        <div id="fault-table"></div>
+      </div>
+    </section>
+
+    <details class="card">
+      <summary>Seneste JSON-svar fra API'et</summary>
+      <pre id="last-response" class="json">Ingen kald endnu</pre>
+    </details>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

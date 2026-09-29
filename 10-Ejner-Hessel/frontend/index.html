@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Min Hessel</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <style>:root { --brand: #003b5c; --brand-dark: #00263d; --brand-soft: #e0edf4; }</style>
+  <style>
+    .progress { display: flex; gap: 4px; margin: 8px 0; }
+    .progress span { flex: 1; height: 8px; border-radius: 4px; background: var(--border); }
+    .progress span.done { background: var(--brand); }
+    .brand { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .slots { display: flex; flex-wrap: wrap; gap: 6px; }
+  </style>
+</head>
+<body data-api-port="5110">
+  <header>
+    <div>
+      <h1>Min Hessel</h1>
+      <p>Alle dine biler, bookinger og dokumenter ét sted</p>
+    </div>
+    <label style="color:#fff">Logget ind som (testkunde)
+      <select id="customer-select"></select>
+    </label>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="cars">Mine biler</button>
+    <button data-tab="car">Biloplysninger</button>
+    <button data-tab="bookings">Værkstedsbooking</button>
+    <button data-tab="documents">Aftaler og dokumenter</button>
+    <button data-tab="workshop">Værksted (medarbejder)</button>
+  </nav>
+
+  <main>
+    <section class="tab active" id="tab-cars">
+      <div id="notifications"></div>
+      <div class="grid" id="car-cards"></div>
+    </section>
+
+    <section class="tab" id="tab-car">
+      <div id="car-details"><p class="empty">Vælg en bil under "Mine biler".</p></div>
+    </section>
+
+    <section class="tab" id="tab-bookings">
+      <div class="grid wide">
+        <div class="card">
+          <h2 id="booking-title">Book tid på værksted</h2>
+          <form id="booking-form">
+            <input type="hidden" name="id">
+            <div class="row">
+              <label>Bil <select name="car_id" data-number required></select></label>
+              <label>Værksted <select name="workshop_id" data-number required></select></label>
+            </div>
+            <div class="row">
+              <label>Type
+                <select name="service_type">
+                  <option>Serviceeftersyn</option><option>Årligt eftersyn</option><option>Hjulskift</option>
+                  <option>Fejlfinding</option><option>Syn</option>
+                </select>
+              </label>
+              <label>Dato <input type="date" name="date" required></label>
+            </div>
+            <label>Tidspunkt <input name="time" readonly required placeholder="Vælg et ledigt tidspunkt nedenfor"></label>
+            <div class="slots" id="slots"></div>
+            <label>Besked til værkstedet <textarea name="notes"></textarea></label>
+            <div class="actions"><button>Gem booking</button><button type="button" class="secondary" data-reset>Ny booking</button></div>
+          </form>
+        </div>
+        <div class="card">
+          <h2>Mine bookinger</h2>
+          <div id="booking-table"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-documents">
+      <div class="card">
+        <form class="toolbar" id="doc-filter">
+          <label>Kategori
+            <select name="category"><option value="">Alle</option><option>Aftale</option><option>Faktura</option>
+              <option>Garanti</option><option>Forsikring</option><option>Andet</option></select>
+          </label>
+        </form>
+        <div id="document-table"></div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-workshop">
+      <div class="grid wide">
+        <div class="card">
+          <h2>Opdatér reparationsstatus</h2>
+          <p class="muted">Medarbejdervisning: ændringer vises med det samme i kundens portal.</p>
+          <div id="repair-table"></div>
+          <h3 style="margin-top:16px">Opret reparation</h3>
+          <form id="repair-form">
+            <input type="hidden" name="id">
+            <label>Bil <select name="car_id" data-number required></select></label>
+            <label>Beskrivelse <input name="description" required></label>
+            <div class="row">
+              <label>Forventet klar <input type="date" name="estimated_ready"></label>
+              <label>Besked til kunden <input name="message"></label>
+            </div>
+            <button>Opret reparation</button>
+          </form>
+        </div>
+        <div class="card">
+          <h2>Registrér service</h2>
+          <form id="service-form">
+            <input type="hidden" name="id">
+            <div class="row">
+              <label>Bil <select name="car_id" data-number required></select></label>
+              <label>Dato <input type="date" name="date" required></label>
+              <label>Type <input name="type" required placeholder="Serviceeftersyn"></label>
+            </div>
+            <div class="row">
+              <label>Værksted <select name="workshop_id" data-number></select></label>
+              <label>Km <input type="number" name="mileage_km"></label>
+              <label>Pris <input type="number" name="price"></label>
+            </div>
+            <label>Beskrivelse <input name="description"></label>
+            <div class="actions"><button>Gem service</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <details class="card">
+      <summary>Seneste JSON-svar fra API'et</summary>
+      <pre id="last-response" class="json">Ingen kald endnu</pre>
+    </details>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

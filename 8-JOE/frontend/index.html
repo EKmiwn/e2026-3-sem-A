@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>JOE Pant – Kopper med pant</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <style>:root { --brand: #d6246e; --brand-dark: #a01a52; --brand-soft: #fbe5ef; }</style>
+  <style>
+    .scan-result { font-size: 1.2rem; font-weight: 700; padding: 18px; border-radius: var(--radius); text-align: center; }
+    .scan-result.ok { background: #e3f3e4; color: var(--ok); }
+    .scan-result.error { background: #fde4e4; color: var(--danger); }
+    .code { font-family: ui-monospace, monospace; font-size: 1.2rem; letter-spacing: 0.05em; }
+  </style>
+</head>
+<body data-api-port="5108">
+  <header>
+    <div>
+      <h1>JOE · Pant på kopper</h1>
+      <p>Betal pant – aflevér koppen – få point i appen</p>
+    </div>
+    <label style="color:#fff">Butik
+      <select id="store-select"></select>
+    </label>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="pos">Kasse (POS)</button>
+    <button data-tab="app">Kunde-app</button>
+    <button data-tab="report">Bæredygtighed</button>
+    <button data-tab="settings">Indstillinger</button>
+  </nav>
+
+  <main>
+    <!-- POS / iPad bag disken -->
+    <section class="tab active" id="tab-pos">
+      <div class="grid wide">
+        <div class="card">
+          <h2>Salg med pant-kop</h2>
+          <form id="order-form">
+            <label>Drik <select name="drink_id" data-number required></select></label>
+            <label>Kundens app-konto (valgfri) <select name="customer_id" data-number></select></label>
+            <button>Sælg og udlevér kop</button>
+          </form>
+          <div id="receipt"></div>
+        </div>
+        <div class="card">
+          <h2>Retur – scan kop</h2>
+          <p class="muted">Scan eller indtast kop-koden. Tager få sekunder.</p>
+          <form id="return-form">
+            <label>Kop-kode <input name="cup_code" class="code" required placeholder="JOE-XXXXXXXX" autocomplete="off"></label>
+            <details>
+              <summary class="muted">Kunde uden app-kobling?</summary>
+              <label>Kundens app-konto <select name="customer_id" data-number></select></label>
+              <label>Kvitteringsnummer <input name="receipt_no" placeholder="K-100004"></label>
+            </details>
+            <button>Godkend retur</button>
+          </form>
+          <div id="scan-result" style="margin-top:12px"></div>
+          <h3 style="margin-top:16px">Kopper i omløb</h3>
+          <div id="cup-table"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Kundens app -->
+    <section class="tab" id="tab-app">
+      <div class="card">
+        <label>Vis app som <select id="customer-select"></select></label>
+      </div>
+      <div class="kpis" id="wallet-kpis"></div>
+      <div class="grid wide">
+        <div class="card">
+          <h2>Mine kopper – aflevér for point</h2>
+          <div id="my-cups"></div>
+          <h3 style="margin-top:16px">Brug point</h3>
+          <form id="redeem-form" class="toolbar">
+            <label>Point <input type="number" name="points" min="1" required></label>
+            <button>Indløs som rabat</button>
+          </form>
+        </div>
+        <div class="card">
+          <h2>Historik</h2>
+          <div id="history"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Rapport -->
+    <section class="tab" id="tab-report">
+      <div class="kpis" id="report-kpis"></div>
+      <div class="card">
+        <h2>Pr. butik</h2>
+        <div id="store-report"></div>
+      </div>
+      <div class="card">
+        <h2>Transaktionslog</h2>
+        <div id="transaction-table"></div>
+      </div>
+    </section>
+
+    <!-- Indstillinger / CRUD -->
+    <section class="tab" id="tab-settings">
+      <div class="grid wide">
+        <div class="card">
+          <h2>Pant og point (centralt styret)</h2>
+          <form id="setting-form">
+            <input type="hidden" name="id">
+            <div class="row">
+              <label>Nøgle <input name="key" readonly></label>
+              <label>Værdi <input type="number" step="0.01" name="value" required></label>
+            </div>
+            <button>Gem indstilling</button>
+          </form>
+          <div id="setting-table"></div>
+        </div>
+        <div class="card">
+          <h2>Drikke</h2>
+          <form id="drink-form">
+            <input type="hidden" name="id">
+            <div class="row">
+              <label>Navn <input name="name" required></label>
+              <label>Pris <input type="number" name="price" required></label>
+            </div>
+            <div class="actions"><button>Gem drik</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
+          </form>
+          <div id="drink-table"></div>
+          <h2 style="margin-top:16px">Kunder (app-konti)</h2>
+          <form id="customer-form">
+            <input type="hidden" name="id">
+            <div class="row">
+              <label>Navn <input name="name" required></label>
+              <label>E-mail <input type="email" name="email" required></label>
+            </div>
+            <div class="actions"><button>Gem kunde</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
+          </form>
+          <div id="customer-table"></div>
+        </div>
+      </div>
+    </section>
+
+    <details class="card">
+      <summary>Seneste JSON-svar fra API'et</summary>
+      <pre id="last-response" class="json">Ingen kald endnu</pre>
+    </details>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
