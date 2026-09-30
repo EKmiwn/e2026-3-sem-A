@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sunny AI</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <style>:root { --brand: #b85209; --brand-dark: #7f3905; --brand-soft: #fdeedf; }</style>
+  <style>
+    /* Synligt tastaturfokus (N02, T11) */
+    :focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+
+    .status-banner { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; background: var(--surface);
+                     border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 16px;
+                     font-size: 0.9rem; }
+    .status-banner strong { color: var(--brand-dark); }
+
+    .week { display: grid; gap: 10px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .day { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; min-height: 140px; background: var(--bg); }
+    .day h3 { margin: 0; font-size: 0.95rem; text-transform: capitalize; }
+    .day .cap { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; }
+    .bar { height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin: 4px 0 8px; }
+    .bar span { display: block; height: 100%; background: var(--brand); }
+    .plan-line { display: block; width: 100%; text-align: left; margin-bottom: 6px; background: var(--surface);
+                 color: var(--text); border: 1px solid var(--border); border-left: 4px solid var(--ok); font-weight: 400; }
+    .plan-line:hover { background: var(--brand-soft); }
+    .plan-line.risk { border-left-color: var(--warn); }
+
+    .action-list li { display: flex; gap: 10px; justify-content: space-between; align-items: start; }
+    .action-list .text { min-width: 0; }
+
+    .chat { display: grid; gap: 12px; }
+    .bubble { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; background: var(--surface); }
+    .bubble.q { background: var(--brand-soft); border-color: transparent; justify-self: end; max-width: 85%; }
+    .bubble .meta { font-size: 0.8rem; color: var(--muted); margin-top: 6px; }
+
+    .explain ul { padding-left: 18px; margin: 6px 0; }
+    .hint { font-size: 0.8rem; color: var(--muted); }
+    .params-days { display: grid; gap: 8px; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+
+    @media (max-width: 800px) {
+      .week, .params-days { grid-template-columns: 1fr; }
+      .day { min-height: 0; }
+    }
+  </style>
+</head>
+<body data-api-port="5111">
+  <header>
+    <div>
+      <h1>☀️ Sunny AI</h1>
+      <p>Sunny Juice · beslutningsstøtte til ugeplan, lager og ordrer</p>
+    </div>
+    <label style="color:#fff">Demobruger (ikke et login)
+      <select id="user-select"></select>
+    </label>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="overview">Overblik</button>
+    <button data-tab="plan">Ugeplan</button>
+    <button data-tab="stock">Lager og ordrer</button>
+    <button data-tab="ask">Spørg Sunny AI</button>
+    <button data-tab="data">Datastatus</button>
+  </nav>
+
+  <main>
+    <!-- F01: kilde og tidspunkt vises på alle skærme -->
+    <div class="status-banner" id="status-banner" role="status">Henter datastatus …</div>
+
+    <!-- Overblik -->
+    <section class="tab active" id="tab-overview">
+      <div class="kpis" id="kpis"></div>
+      <div class="grid wide">
+        <div class="card">
+          <h2>Ugeplan <span id="overview-plan-label" class="muted"></span></h2>
+          <div id="overview-week"></div>
+          <div class="actions" style="margin-top:12px">
+            <button data-goto="plan">Åbn ugeplan</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>Kræver handling</h2>
+          <ul class="list action-list" id="overview-actions"></ul>
+          <div class="actions" style="margin-top:12px">
+            <button class="secondary" data-goto="plan" data-scroll="needs-card">Se råvarebehov</button>
+            <button class="secondary" data-ask="Hvordan ser ugeplanen ud?">Spørg om planen</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Ugeplan -->
+    <section class="tab" id="tab-plan">
+      <form class="card" id="plan-form">
+        <h2>Planparametre</h2>
+        <div class="row">
+          <label>Uge (mandag) <input type="date" name="uge_start" min="2024-01-01" step="7" required></label>
+        </div>
+        <fieldset>
+          <legend>Ordrer der skal planlægges · prioritet</legend>
+          <div id="plan-orders"></div>
+        </fieldset>
+        <fieldset>
+          <legend>Disponible timer pr. dag <span class="hint">(standard 8 t – ændringer markeres som manuelle)</span></legend>
+          <div class="params-days" id="plan-capacity"></div>
+        </fieldset>
+        <div class="actions">
+          <button>Beregn forslag</button>
+          <button type="button" class="secondary" id="plan-defaults">Standardparametre</button>
+        </div>
+      </form>
+
+      <div class="card" id="plan-card">
+        <p class="empty">Henter plan …</p>
+      </div>
+
+      <div class="grid wide">
+        <div class="card" id="explain-card">
+          <h2>Beregningsgrundlag</h2>
+          <p class="empty">Vælg en planlinje eller en uplanlagt ordre for at se, hvordan den er beregnet.</p>
+        </div>
+        <div class="card" id="needs-card">
+          <h2>Råvarebehov</h2>
+          <div id="needs-table"></div>
+          <p class="hint">Bruttobehov til vurdering – ikke en købsordre. Leveringstider og kommende indkøb indgår ikke.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Versionshistorik</h2>
+        <div id="versions-table"></div>
+      </div>
+    </section>
+
+    <!-- Lager og ordrer -->
+    <section class="tab" id="tab-stock">
+      <div class="card">
+        <form class="toolbar" id="search-form">
+          <label>Søg på ordrenummer, varenummer eller navn <input name="q" placeholder="fx O2, R1 eller æble"></label>
+          <button>Søg</button>
+          <button type="button" class="secondary" id="search-clear">Vis alle</button>
+        </form>
+      </div>
+      <div class="grid wide">
+        <div>
+          <div class="card">
+            <h2>Ordrer</h2>
+            <div id="orders-table"></div>
+          </div>
+          <div class="card">
+            <h2>Lager</h2>
+            <div id="stock-table"></div>
+          </div>
+        </div>
+        <div class="card" id="detail-card">
+          <h2>Detaljer</h2>
+          <p class="empty">Vælg en ordre eller vare for at se mængde, enhed, dato, status, kilde-id og kildeopdatering.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Spørg Sunny AI -->
+    <section class="tab" id="tab-ask">
+      <div class="grid wide">
+        <div class="card">
+          <h2>Spørg Sunny AI</h2>
+          <p class="muted">Regelbaseret demoassistent – ikke en sprogmodel. Svarene bruger de samme tal som ugeplanen og viser altid kilde og tidspunkt. Mangler data, siger assistenten det i stedet for at gætte.</p>
+          <form id="ask-form">
+            <label>Dit spørgsmål <input name="spoergsmaal" required maxlength="500" placeholder="fx Kan ordre O2 produceres?"></label>
+            <button>Spørg</button>
+          </form>
+          <p class="hint" style="margin-top:12px">Eksempler:</p>
+          <div class="actions" id="ask-examples"></div>
+        </div>
+        <div class="card">
+          <h2>Svar</h2>
+          <div class="chat" id="chat"><p class="empty">Ingen spørgsmål endnu.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Datastatus -->
+    <section class="tab" id="tab-data">
+      <div class="grid wide">
+        <div class="card">
+          <h2>Snapshot</h2>
+          <div id="snapshot-info"></div>
+          <form class="toolbar" id="clock-form" style="margin-top:12px">
+            <label>Beregningstidspunkt (demo-ur) <input type="datetime-local" name="beregningstidspunkt" required></label>
+            <button>Sæt tidspunkt</button>
+          </form>
+          <p class="hint">Et nyt tidspunkt kræver genberegning. Kildedata ældre end 24 timer kan ikke bruges til godkendelse.</p>
+        </div>
+        <div class="card">
+          <h2>Kendte dataproblemer</h2>
+          <div id="problems-table"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Simulér ændring i kildedata (demo)</h2>
+        <p class="muted">I prototypen repræsenterer et testfeed Uniconta. Hver handling indlæser et nyt snapshot. Sunny AI skriver aldrig tilbage til kildesystemet.</p>
+        <div class="grid">
+          <form id="import-reload">
+            <h3>Ny indlæsning</h3>
+            <p class="hint">Samme data med nyt kildetidspunkt.</p>
+            <button>Indlæs snapshot</button>
+          </form>
+          <form id="import-expire">
+            <h3>Batch udløbet (T02)</h3>
+            <label>Batch <select name="batchnummer" required></select></label>
+            <button>Registrér som udløbet</button>
+          </form>
+          <form id="import-unresolved">
+            <h3>Uafklaret færdigmelding (T03)</h3>
+            <label>Berørt vare <select name="vare_id" data-number required></select></label>
+            <div class="actions">
+              <button>Registrér</button>
+              <button type="button" class="secondary" id="import-resolve">Afklar alle</button>
+            </div>
+          </form>
+          <form id="import-order">
+            <h3>Ny ordre (T05)</h3>
+            <div class="row">
+              <label>Ordrenummer <input name="ordre_id" required placeholder="O5"></label>
+              <label>Vare <select name="vare_id" data-number required></select></label>
+            </div>
+            <div class="row">
+              <label>Antal <input type="number" name="antal" min="1" step="1" required></label>
+              <label>Leveringsdato <input type="date" name="leveringsdato" required></label>
+            </div>
+            <div class="row">
+              <label>Prioritet <select name="prioritet"><option>normal</option><option>høj</option></select></label>
+              <label style="align-self:end"><span><input type="checkbox" name="saesonmaerke"> Sæsonmærke</span></label>
+            </div>
+            <button>Tilføj ordre</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="grid wide">
+        <div class="card">
+          <h2>Snapshots</h2>
+          <div id="snapshots-table"></div>
+        </div>
+        <div class="card">
+          <h2>Hændelseslog</h2>
+          <div id="events-table"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Nulstil demo</h2>
+        <p class="muted">Sletter planer, godkendelser og ændringer og genskaber startdata (snapshot 5.10.2026 kl. 08.00).</p>
+        <button class="danger" id="reset-button">Nulstil demo …</button>
+      </div>
+    </section>
+
+    <details class="card">
+      <summary>Seneste JSON-svar fra API'et</summary>
+      <pre id="last-response" class="json">Ingen kald endnu</pre>
+    </details>
+  </main>
+
+  <div id="toast" class="toast" role="alert"></div>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

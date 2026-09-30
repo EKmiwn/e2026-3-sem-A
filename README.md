@@ -17,6 +17,7 @@ Hver gruppemappe indeholder en prototype bygget ud fra gruppens kravspecifikatio
 | 8 | JOE | Pant på kopper: kop-kode, retur og point i appen | 5108 | :8008 | [DOCS](8-JOE/DOCS.md) · [API](8-JOE/backend/README.md) |
 | 9 | Den Sidste Rejse | Lagerfunktion i EG med historik og genbestillingsliste | 5109 | :8009 | [DOCS](9-Den-Sidste-Rejse/DOCS.md) · [API](9-Den-Sidste-Rejse/backend/README.md) |
 | 10 | Ejner Hessel | Min Hessel: biler, service, reparationsstatus, booking og dokumenter | 5110 | :8010 | [DOCS](10-Ejner-Hessel/DOCS.md) · [API](10-Ejner-Hessel/backend/README.md) |
+| 11 | Sunny AI | Ugeplan for produktion, råvaremangler, lageropslag og regelbaseret assistent | 5111 | :8011 | [DOCS](11-Sunny-AI/DOCS.md) · [API](11-Sunny-AI/backend/README.md) |
 
 - **`DOCS.md`** beskriver prototypen: krav, forretningsregler, ER-diagram og testdata.
 - **`backend/README.md`** viser alle API-endepunkter.
@@ -42,6 +43,8 @@ Alle prototyper er bygget ens:
     └── app.js            projektets frontend-logik
 ```
 
+Sunny AI har desuden `backend/planner.py` (planmotoren uden Flask og SQLite) og `backend/tests.py` (accepttests), fordi kravspecifikationen kræver, at beregningslogikken kan testes alene.
+
 Flask serverer frontenden på `/` og API'et på `/api/...` fra samme adresse.
 
 ## Kør lokalt
@@ -57,7 +60,7 @@ Databasen oprettes med testdata ved første start. Nulstil den med `python datab
 
 ## Deployment på DigitalOcean
 
-Alle ti prototyper kører på én Droplet (Ubuntu, 512 MB RAM + 1 GB swap). Hver prototype kører med **Gunicorn** som sin egen **systemd**-service og nås på `http://DROPLET_IP:8001` til `:8010`.
+Alle elleve prototyper kører på én Droplet (Ubuntu, 512 MB RAM + 1 GB swap). Hver prototype kører med **Gunicorn** som sin egen **systemd**-service og nås på `http://DROPLET_IP:8001` til `:8011`.
 
 Hvert projekt har i sin `backend`-mappe:
 
@@ -65,7 +68,7 @@ Hvert projekt har i sin `backend`-mappe:
 - `gunicorn.env` med projektets port, fx `PORT=8001`
 - `database.db`, oprettet én gang med `venv/bin/python database.py`, fordi Gunicorn ikke opretter databasen
 
-Alle ti bruger den samme service-skabelon, `/etc/systemd/system/gunicorn@.service`, hvor `%i` er projektmappens navn:
+Alle elleve bruger den samme service-skabelon, `/etc/systemd/system/gunicorn@.service`, hvor `%i` er projektmappens navn:
 
 ```ini
 [Unit]
@@ -92,7 +95,7 @@ Hver prototype er startet og sat til at starte ved boot:
 
 ```bash
 systemctl daemon-reload
-systemctl enable --now gunicorn@1-StockUP      # osv. for alle ti
+systemctl enable --now gunicorn@1-StockUP      # osv. for alle elleve
 ```
 
 ### Nyttige kommandoer
