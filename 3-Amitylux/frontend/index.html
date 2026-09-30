@@ -3,173 +3,197 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Amitylux – Experience Finder</title>
+  <title>Amitylux – Experience Compass</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
   <style>:root { --brand: #1f2a44; --brand-dark: #121a2e; --brand-soft: #ece8dc; }</style>
+  <style>
+    /* Project-specific: stepper, choice chips and suggestion cards (K10) */
+    main { max-width: 960px; }
+    .progress { display: flex; gap: 4px; margin-bottom: 8px; }
+    .progress span { flex: 1; height: 6px; border-radius: 3px; background: var(--border); }
+    .progress span.done { background: var(--brand); }
+    .step-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 12px; }
+    .step-head p { margin: 0; }
+    .active-choices { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 16px; min-height: 22px; }
+    .choices { display: flex; flex-wrap: wrap; gap: 8px; border: none; padding: 0; margin: 0; }
+    .choices legend { font-weight: 600; margin-bottom: 6px; color: var(--text); padding: 0; }
+    .choices label { margin: 0; }
+    .choices input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+    .choices label > span { display: inline-block; padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px;
+      background: var(--surface); color: var(--text); cursor: pointer; font-size: 0.9rem; }
+    .choices label > input:checked + span { background: var(--brand); border-color: var(--brand); color: #fff; }
+    .choices label > input:focus-visible + span { outline: 3px solid var(--brand-soft); outline-offset: 2px; }
+    #step-request .grid, #prefs-form, #request-form { align-items: start; align-content: start; }
+    .field-error { color: var(--danger); font-size: 0.85rem; min-height: 1em; margin: 2px 0 0; }
+    .nav-buttons { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-top: 16px; }
+    .suggestion { border-top: 4px solid var(--brand); }
+    .suggestion.slot-local { border-top-color: var(--ok); }
+    .suggestion.slot-balanced { border-top-color: var(--warn); }
+    .suggestion h3 { font-size: 1.15rem; margin: 4px 0 6px; }
+    .why { background: var(--brand-soft); border-radius: 8px; padding: 10px 12px; margin: 10px 0; }
+    .why ul, .confirm ul { margin: 4px 0 0; padding-left: 18px; }
+    .confirm { background: #fff7e6; border-left: 4px solid var(--warn); border-radius: 6px; padding: 8px 12px; margin: 10px 0; font-size: 0.9rem; }
+    .facts { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: 0.9rem; margin: 8px 0; }
+    .facts dt { color: var(--muted); }
+    .facts dd { margin: 0; }
+    .new-tag { background: var(--ok); color: #fff; }
+    .changes { border-color: var(--ok); }
+    .source { font-size: 0.75rem; color: var(--muted); }
+    .staff-link { color: #fff; opacity: 0.8; font-size: 0.85rem; }
+    .adjust-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+    .adjust-bar label { min-width: 140px; flex: 1; }
+    @media (max-width: 600px) {
+      .facts { grid-template-columns: 1fr; }
+      .facts dd { margin-bottom: 6px; }
+      .nav-buttons button { flex: 1; }
+    }
+  </style>
 </head>
 <body data-api-port="5103">
   <header>
     <div>
-      <h1>Amitylux</h1>
-      <p>Private, small-group and tailor-made city experiences with local experts</p>
+      <h1>Amitylux Experience Compass</h1>
+      <p>Up to three experiences chosen for you – explained, and checked by local experts</p>
     </div>
-    <button class="secondary" id="help-button">Talk to a person</button>
+    <div class="actions">
+      <button class="secondary" id="help-button">Talk to a person</button>
+      <button class="secondary" id="staff-button" data-view="staff">Staff view</button>
+    </div>
   </header>
 
-  <nav class="tabs">
-    <button class="active" data-tab="needs">1. Your trip</button>
-    <button data-tab="compare">2. Compare</button>
-    <button data-tab="recommend">3. Recommendation</button>
-    <button data-tab="request">4. Summary &amp; send</button>
-    <button data-tab="staff">Staff: inquiries</button>
-  </nav>
-
   <main>
-    <!-- F-01 Needs assessment -->
-    <section class="tab active" id="tab-needs">
-      <div class="card">
-        <h2>Tell us about your trip</h2>
-        <p class="muted">Takes about two minutes. You can go back and change your answers at any time.</p>
-        <form id="needs-form">
-          <div class="row">
-            <label>Destination <select name="destination_id" data-number required></select></label>
-            <label>From <input type="date" name="date_from"></label>
-            <label>To <input type="date" name="date_to"></label>
-          </div>
-          <div class="row">
-            <label>Who is travelling?
-              <select name="group_type">
-                <option value="couple">Couple</option><option value="family">Family</option>
-                <option value="friends">Friends</option><option value="solo">Solo</option>
-              </select>
-            </label>
-            <label>Group size <input type="number" name="group_size" min="1" max="60" value="2"></label>
-            <label>Preferred language
-              <select name="language">
-                <option>English</option><option>Danish</option><option>German</option>
-                <option>Spanish</option><option>French</option><option>Italian</option>
-              </select>
-            </label>
-          </div>
-          <div class="row">
-            <label>Pace and flexibility
-              <select name="pace">
-                <option value="fixed">Fixed schedule is fine</option>
-                <option value="relaxed" selected>Relaxed – adapt on the day</option>
-                <option value="flexible">Fully flexible</option>
-              </select>
-            </label>
-            <label>Approximate budget per person
-              <select name="budget">
-                <option value="low">Under €60</option><option value="medium" selected>€60–120</option>
-                <option value="high">€120–250</option><option value="premium">€250+</option>
-              </select>
-            </label>
-          </div>
-          <fieldset>
-            <legend>Interests</legend>
-            <label><input type="checkbox" name="interests" value="history" data-list checked> History</label>
-            <label><input type="checkbox" name="interests" value="art" data-list> Art</label>
-            <label><input type="checkbox" name="interests" value="food" data-list> Food</label>
-            <label><input type="checkbox" name="interests" value="architecture" data-list> Architecture</label>
-            <label><input type="checkbox" name="interests" value="nature" data-list> Nature</label>
-            <label><input type="checkbox" name="interests" value="nightlife" data-list> Nightlife</label>
-            <label><input type="checkbox" name="interests" value="hidden gems" data-list> Hidden gems</label>
-          </fieldset>
-          <div class="actions">
-            <button>See my recommendation</button>
-            <button type="button" class="secondary" data-goto="compare">Compare experience types first</button>
-          </div>
-        </form>
+    <!-- ============================== Customer flow (K1–K10) ============================== -->
+    <div id="customer-view">
+      <div class="progress" id="progress" aria-hidden="true"></div>
+      <div class="step-head">
+        <p class="muted" id="step-label" aria-live="polite"></p>
+        <button class="small secondary" id="back-button" type="button">← Back</button>
       </div>
-    </section>
+      <div class="active-choices" id="active-choices" aria-label="Your current choices"></div>
 
-    <!-- F-02 Comparison -->
-    <section class="tab" id="tab-compare">
-      <div class="card">
-        <h2>Public, private or customised – what is the difference?</h2>
-        <div id="compare-table"></div>
-      </div>
-    </section>
-
-    <!-- F-03 – F-06, F-10, F-12 – F-14 Recommendation -->
-    <section class="tab" id="tab-recommend">
-      <div id="recommendation"><p class="empty">Answer the questions in step 1 to get a recommendation.</p></div>
-      <div class="card">
-        <h2>Browse and filter experiences</h2>
-        <form class="toolbar" id="filter-form">
-          <label>Type
-            <select name="type"><option value="">All</option><option value="public">Public</option>
-              <option value="private">Private</option><option value="customised">Customised</option></select>
-          </label>
-          <label>Max price level
-            <select name="price_level"><option value="">Any</option><option value="low">Low</option>
-              <option value="medium">Medium</option><option value="high">High</option><option value="premium">Premium</option></select>
-          </label>
-          <label>Language
-            <select name="language"><option value="">Any</option><option>English</option><option>Danish</option>
-              <option>German</option><option>Spanish</option><option>French</option><option>Italian</option></select>
-          </label>
-          <label>Group size <input type="number" name="group_size" min="1" style="width:90px"></label>
-          <label>Interest
-            <select name="interest"><option value="">Any</option><option>history</option><option>art</option>
-              <option>food</option><option>architecture</option><option>nature</option><option>nightlife</option>
-              <option>hidden gems</option></select>
-          </label>
-          <button type="reset" class="secondary">Reset filters</button>
-        </form>
-        <p class="muted" id="active-filters"></p>
-        <div class="grid" id="experience-cards"></div>
-      </div>
-    </section>
-
-    <!-- F-07, F-08, F-11, NF-07 Summary and hand-over -->
-    <section class="tab" id="tab-request">
-      <div class="grid wide">
+      <!-- Step 1 – Start -->
+      <section class="tab active" id="step-start" data-title="Start">
         <div class="card">
-          <h2>Add-ons and guide wishes</h2>
-          <form id="request-form">
-            <fieldset id="addon-list"><legend>Add-ons for a private / customised experience</legend></fieldset>
-            <div class="row">
-              <label>Guide language <input name="guide_language" placeholder="e.g. German"></label>
-              <label>Guide focus <input name="guide_focus" placeholder="e.g. Royal history"></label>
-              <label>Guide style <input name="guide_style" placeholder="e.g. Storyteller, child friendly"></label>
-            </div>
-            <label>Anything else we should know? <textarea name="notes"></textarea></label>
-            <h3>Your contact details</h3>
-            <p class="muted">Only used to answer this request. Shown in the summary before you send.</p>
-            <div class="row">
-              <label>Name <input name="contact_name" required></label>
-              <label>E-mail <input type="email" name="contact_email" required></label>
-              <label>Phone (optional) <input name="contact_phone"></label>
-            </div>
-            <button>Send request to Amitylux</button>
+          <h2>Find experiences that fit your trip</h2>
+          <p>Answer six short questions. You get <strong>at most three suggestions</strong> from Amitylux' own
+            catalogue – each with the reasons it fits you. You can change your answers at any time.</p>
+          <fieldset class="choices" id="destination-choices"><legend>Where are you going?</legend></fieldset>
+          <p class="field-error" data-error="destination_id"></p>
+          <p class="muted">Nothing is booked. Prices, guides and availability marked
+            <span class="badge warn">requires confirmation</span> are checked by a person before anything is final.</p>
+        </div>
+      </section>
+
+      <!-- Step 2 – Preferences (K1) -->
+      <section class="tab" id="step-preferences" data-title="Your preferences">
+        <form class="card" id="prefs-form" novalidate>
+          <h2>Tell us about you</h2>
+          <fieldset class="choices" id="group-type-choices"><legend>Who is travelling?</legend></fieldset>
+          <p class="field-error" data-error="group_type"></p>
+          <label style="max-width:200px">How many are you?
+            <input type="number" name="group_size" min="1" max="40" value="2" data-number>
+          </label>
+          <p class="field-error" data-error="group_size"></p>
+          <fieldset class="choices" id="interest-choices"><legend>What are you interested in? <span class="muted">(choose one or more)</span></legend></fieldset>
+          <p class="field-error" data-error="interests"></p>
+          <fieldset class="choices" id="pace-choices"><legend>Which pace suits you?</legend></fieldset>
+          <p class="field-error" data-error="pace"></p>
+          <label style="max-width:240px">Guide language <select name="language" id="language-select"></select></label>
+          <fieldset class="choices" id="practical-choices"><legend>Anything practical we should consider? <span class="muted">(optional)</span></legend></fieldset>
+          <label style="max-width:240px">Travel date <span class="muted">(optional)</span> <input type="date" name="travel_date"></label>
+          <p class="field-error" data-error="travel_date"></p>
+        </form>
+      </section>
+
+      <!-- Step 3 – Summary (K1) -->
+      <section class="tab" id="step-summary" data-title="Check your answers">
+        <div class="card">
+          <h2>Is this right?</h2>
+          <p class="muted">Your suggestions are based only on these answers. Tap <em>Change</em> to adjust one.</p>
+          <div id="prefs-summary"></div>
+        </div>
+      </section>
+
+      <!-- Step 4 – Suggestions + adjust (K2, K3, K5–K7, K9, K12) -->
+      <section class="tab" id="step-results" data-title="Your suggestions">
+        <div id="changes"></div>
+        <div class="card">
+          <h2>Adjust and see what changes</h2>
+          <form class="adjust-bar" id="adjust-form">
+            <label>Pace <select name="pace" id="adjust-pace"></select></label>
+            <label>Group size <input type="number" name="group_size" min="1" max="40" data-number></label>
+            <label>Language <select name="language" id="adjust-language"></select></label>
+            <button type="button" class="secondary" id="adjust-interests">Change interests</button>
           </form>
         </div>
-        <div class="card">
-          <h2>Summary – what we will receive</h2>
-          <div id="summary"></div>
-          <div id="receipt"></div>
-        </div>
-      </div>
-    </section>
+        <div id="results"></div>
+        <div class="card" id="why-amitylux"></div>
+      </section>
 
-    <!-- F-15 Staff view -->
-    <section class="tab" id="tab-staff">
+      <!-- Step 5 – Compare product types (K4) -->
+      <section class="tab" id="step-compare" data-title="Public, private or customised?">
+        <div class="card">
+          <h2>What is the difference?</h2>
+          <p class="muted">Your suggestions can be of different types. Choose the type you want – you can still talk to a person.</p>
+          <div id="compare-table"></div>
+          <fieldset class="choices" id="wanted-type-choices" style="margin-top:12px"><legend>Which type do you want?</legend></fieldset>
+          <p class="field-error" data-error="wanted_type"></p>
+        </div>
+      </section>
+
+      <!-- Step 6 – Request and hand-over (K8) -->
+      <section class="tab" id="step-request" data-title="Send to a local expert">
+        <div class="grid wide">
+          <form class="card" id="request-form">
+            <h2>Your request</h2>
+            <p class="muted" id="kept-info"></p>
+            <fieldset class="choices" id="addon-choices"><legend>Add elements <span class="muted">(optional)</span></legend></fieldset>
+            <label>Is there anything you are unsure about? <textarea name="customer_unsure" placeholder="e.g. whether a boat trip works with a 7-year-old"></textarea></label>
+            <label>Anything else we should know? <textarea name="notes"></textarea></label>
+            <h3>Contact details</h3>
+            <p class="muted">Only used to answer this request.</p>
+            <div class="row">
+              <label>Name <input name="contact_name" required autocomplete="name"></label>
+              <label>E-mail <input type="email" name="contact_email" required autocomplete="email"></label>
+              <label>Phone (optional) <input name="contact_phone" autocomplete="tel"></label>
+            </div>
+            <button>Send request</button>
+          </form>
+          <div class="card">
+            <h2>Exactly what we receive</h2>
+            <div id="brief-preview"><p class="empty">Loading…</p></div>
+            <div id="receipt"></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="nav-buttons">
+        <span></span>
+        <button id="next-button" type="button">Next</button>
+      </div>
+    </div>
+
+    <!-- ============================== Staff view (K8, K9) ============================== -->
+    <div id="staff-view" hidden>
       <div class="grid wide">
         <div class="card">
-          <h2>Incoming inquiries</h2>
+          <h2>Incoming requests</h2>
           <div id="inquiry-table"></div>
-          <h3 style="margin-top:16px">Help requests</h3>
+          <h3 style="margin-top:16px">Talk to a person</h3>
           <div id="help-table"></div>
         </div>
         <div class="card">
-          <h2>Standardised brief</h2>
-          <div id="brief"><p class="empty">Select an inquiry to see its brief.</p></div>
+          <h2>Brief</h2>
+          <div id="brief"><p class="empty">Select a request to see its brief.</p></div>
         </div>
       </div>
-    </section>
+      <div class="card">
+        <h2>Catalogue check (K9)</h2>
+        <p class="muted">Only approved and complete rows are used for suggestions. Everything in the last column is always shown as “requires confirmation”.</p>
+        <div id="audit-table"></div>
+      </div>
+    </div>
 
     <details class="card">
       <summary>Latest JSON response from the API</summary>
@@ -177,10 +201,10 @@
     </details>
   </main>
 
-  <!-- F-09 Personal help, available on every step -->
+  <!-- K8: personal help from every step, without losing answers -->
   <dialog id="help-dialog" class="card">
     <h2>Talk to a person</h2>
-    <p class="muted">A local Amitylux expert contacts you. Your answers so far are kept.</p>
+    <p class="muted">A local Amitylux expert contacts you. Your answers so far are sent along, so you will not have to repeat them.</p>
     <form id="help-form" method="dialog">
       <label>Name <input name="name" required></label>
       <label>E-mail or phone <input name="contact" required></label>

@@ -1,187 +1,462 @@
-// GreenMobility Hotspot – præsentationslag. Henter JSON fra Flask-API'et og viser det i DOM'en.
+// GreenMobility Hotspot – kundeside (præsentationslag). Henter JSON fra Flask-API'et og viser det i DOM'en.
+// Den indloggede kunde vælges i prototypen med ?kunde=2 i adressen (standard: kunde 1). Se admin.html.
 
-const state = { customerId: null, hotspots: [], reservations: [] };
+const state = {
+  customerId: Number(new URLSearchParams(location.search).get("kunde")) || 1,
+  customer: null,
+  info: null,
+  hotspots: [],
+  reservations: [],
+  query: "",
+  position: null,        // brugerens position – kun i browseren, sendes ikke til serveren
+  arrived: null,         // seneste ankomst, vises som kvittering indtil den lukkes
+  aiMessages: [{ from: "ai", text: "Hej! Jeg er GreenMobilitys AI-assistent. Spørg mig om booking, parkering eller problemer med appen." }],
+  chatTimer: null,
+};
 
-const RES_STATUS = { AKTIV: "ok", BENYTTET: "", ANNULLERET: "muted", UDLOEBET: "danger" };
-const SPOT_STATUS = { LEDIG: "ok", RESERVERET: "warn", OPTAGET: "danger", SPAERRET: "muted" };
+const RES_STATUS = { AKTIV: ["Aktiv", "ok"], BENYTTET: ["Benyttet", ""], ANNULLERET: ["Annulleret", "muted"], UDLOEBET: ["Udløbet", "danger"] };
 
 // ---------------------------------------------------------------- Indlæsning
-async function loadCustomers() {
-  const customers = await api("/customers");
-  const select = $("#customer-select");
-  fillSelect(select, customers, (c) => `${c.name} (${c.car_plate})`);
-  state.customerId = Number(select.value);
-}
-
-async function loadAll() {
+async function load() {
   const [hotspots, reservations] = await Promise.all([
     api("/hotspots/overview"),
     api(`/reservations?customer_id=${state.customerId}`),
   ]);
   Object.assign(state, { hotspots, reservations });
+  renderReservation();
   renderHotspots();
-  renderMine();
-  loadAdmin();
 }
 
-// ---------------------------------------------------------------- Kunde
 function activeReservation() {
   return state.reservations.find((r) => r.status === "AKTIV");
 }
 
-function renderHotspots() {
+// ---------------------------------------------------------------- Aktiv reservation
+function renderReservation() {
   const active = activeReservation();
-  $("#active-banner").replaceChildren(active
-    ? h("div", { class: "card highlight" },
-        h("strong", {}, `Du har en aktiv reservation: ${active.reservation_no} – plads ${active.spot_label} ved ${active.hotspot_name}. `),
-        `Ankom senest kl. ${active.arrival_deadline.slice(11, 16)}.`)
-    : "");
-
-  $("#hotspot-cards").replaceChildren(...state.hotspots.map((hs) =>
-    h("div", { class: "card" },
-      h("h3", {}, hs.name),
-      h("p", { class: "muted" }, hs.address),
-      h("div", { class: "kpi" },
-        h("div", { class: "value" }, hs.free),
-        h("div", { class: "label" }, `ledige af ${hs.total} pladser`)),
-      h("p", {}, badge(`${hs.reserved} reserveret`, "warn"), " ", badge(`${hs.occupied} optaget`, "danger")),
-      h("button", { disabled: !hs.free || !!active, onclick: () => reserve(hs) },
-        hs.free ? "Reservér plads" : "Ingen ledige pladser"),
-    )));
-}
-
-async function reserve(hotspot) {
-  const r = await run(
-    () => api("/reservations", { method: "POST", body: { customer_id: state.customerId, hotspot_id: hotspot.id } }),
-    (r) => `Reservation ${r.reservation_no} bekræftet – plads ${r.spot_label}`,
+  const box = $("#my-reservation");
+  if (!active) {
+    box.replaceChildren(state.arrived
+      ? h("div", { class: "notice" },
+          h("p", {}, h("strong", {}, "Du er parkeret. "), `Plads ${state.arrived.spot_label} ved ${state.arrived.hotspot_name} står nu som optaget.`),
+          h("button", { class: "ghost small", onclick: () => { state.arrived = null; renderReservation(); } }, "OK"))
+      : "");
+    return;
+  }
+  box.replaceChildren(
+    h("div", { class: "reservation" },
+      h("div", { class: "eyebrow" }, `Din reservation · ${active.reservation_no}`),
+      h("div", { class: "top" },
+        h("div", { class: "spot-label", "aria-label": `Plads ${active.spot_label}` }, h("div", {}, h("small", {}, "PLADS"), active.spot_label)),
+        h("div", { class: "where" }, h("strong", {}, active.hotspot_name), h("span", {}, active.hotspot_address))),
+      h("div", { class: "timer" },
+        h("span", { class: "left", id: "countdown" }, countdown(active.arrival_deadline)),
+        h("span", { class: "deadline" }, `Ankom senest kl. ${active.arrival_deadline.slice(11, 16)}`)),
+      h("div", { class: "bar", id: "countdown-bar" }, h("div", { style: `width:${progress(active)}%` })),
+      h("div", { class: "actions" },
+        h("button", { onclick: () => arrive(active) }, "Jeg er ankommet"),
+        h("button", { class: "danger-outline", onclick: () => confirmCancel(active) }, "Annullér")),
+      h("div", { class: "links" },
+        h("button", { class: "ghost small", onclick: () => openHelp("problem") }, "Problem med pladsen?"),
+        active.hotspot_directions && h("button", { class: "ghost small", onclick: () => showDirections(active) }, "Vejvisning"))),
   );
-  await loadAll();
-  document.querySelector('[data-tab="mine"]').click();
-  return r;
+  tick();
 }
 
-function renderMine() {
-  const active = activeReservation();
-  $("#active-reservation").replaceChildren(active
-    ? h("div", { class: "card highlight" },
-        h("h2", {}, `Reservation ${active.reservation_no}`),
-        h("div", { class: "kpis" },
-          info("Hotspot", active.hotspot_name),
-          info("Plads", active.spot_label),
-          info("Ankomstfrist", active.arrival_deadline.slice(11, 16)),
-          info("Tid tilbage", h("span", { id: "countdown" }, countdown(active.arrival_deadline)))),
-        h("div", { class: "actions" },
-          h("button", { onclick: () => act(active, "arrive", "Ankomst registreret – god parkering!") }, "Jeg er ankommet"),
-          h("button", { class: "danger", onclick: () => act(active, "cancel", "Reservationen er annulleret") }, "Annullér")))
-    : h("div", { class: "card" }, h("p", { class: "empty" }, "Du har ingen aktiv reservation. Vælg et hotspot for at reservere.")));
-
-  renderTable($("#my-reservations"), state.reservations, [
-    { label: "Nr.", key: "reservation_no" },
-    { label: "Hotspot", key: "hotspot_name" },
-    { label: "Plads", key: "spot_label" },
-    { label: "Oprettet", render: (r) => formatDate(r.created_at) },
-    { label: "Frist", render: (r) => formatDate(r.arrival_deadline) },
-    { label: "Status", render: (r) => badge(r.status, RES_STATUS[r.status]) },
-  ], "Ingen reservationer endnu");
-}
-
-function info(label, value) {
-  return h("div", { class: "kpi" }, h("div", { class: "label" }, label), h("div", { class: "value" }, value));
+function msLeft(deadline) {
+  return new Date(deadline.replace(" ", "T")) - Date.now();
 }
 
 function countdown(deadline) {
-  const ms = new Date(deadline.replace(" ", "T")) - Date.now();
+  const ms = msLeft(deadline);
   if (ms <= 0) return "Udløbet";
   const minutes = Math.floor(ms / 60000);
   const seconds = Math.floor((ms % 60000) / 1000);
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
 
+function progress(r) {
+  const total = new Date(r.arrival_deadline.replace(" ", "T")) - new Date(r.created_at.replace(" ", "T"));
+  return Math.max(0, Math.min(100, (msLeft(r.arrival_deadline) / total) * 100));
+}
+
 // Opdaterer nedtællingen hvert sekund og henter ny status, når fristen er nået
-setInterval(() => {
+function tick() {
   const active = activeReservation();
   const el = $("#countdown");
   if (!active || !el) return;
+  const soon = msLeft(active.arrival_deadline) < 5 * 60000;
   el.textContent = countdown(active.arrival_deadline);
-  if (el.textContent === "Udløbet") loadAll();
-}, 1000);
-
-async function act(reservation, action, message) {
-  await run(() => api(`/reservations/${reservation.id}/${action}`, { method: "POST" }), message);
-  loadAll();
-}
-
-// ---------------------------------------------------------------- Administrator
-async function loadAdmin() {
-  const [spots, reservations, hotspots, events] = await Promise.all([
-    api("/admin/spots"), api("/reservations"), api("/hotspots"), api("/events"),
-  ]);
-
-  renderTable($("#spot-table"), spots, [
-    { label: "Hotspot", key: "hotspot_name" },
-    { label: "Plads", key: "label" },
-    { label: "Status", render: (s) => badge(s.status, SPOT_STATUS[s.status]) },
-    { label: "Reservation", render: (s) => s.active_reservation ?? "–" },
-    { label: "Simulér", render: (s) => spotActions(s) },
-  ]);
-
-  renderTable($("#all-reservations"), reservations, [
-    { label: "Nr.", key: "reservation_no" },
-    { label: "Kunde", key: "customer_name" },
-    { label: "Hotspot / plads", render: (r) => `${r.hotspot_name} · ${r.spot_label}` },
-    { label: "Frist", render: (r) => formatDate(r.arrival_deadline) },
-    { label: "Status", render: (r) => badge(r.status, RES_STATUS[r.status]) },
-    {
-      label: "",
-      render: (r) => r.status === "AKTIV"
-        ? h("button", { class: "small secondary", onclick: () => adminPost(`/admin/reservations/${r.id}/expire`, "Fristen er overskredet – reservationen er udløbet") }, "Simulér udløb")
-        : "",
-    },
-  ]);
-
-  const hotspotForm = $("#hotspot-form");
-  renderTable($("#hotspot-table"), hotspots, [
-    { label: "Navn", key: "name" },
-    { label: "Område", key: "area" },
-    { label: "", render: (hs) => crudButtons("hotspots", hotspotForm, hs, loadAll) },
-  ]);
-  fillSelect($("#spot-form [name=hotspot_id]"), hotspots, (hs) => hs.name);
-
-  $("#event-list").replaceChildren(...events.slice(0, 12).map((e) =>
-    h("li", {}, h("strong", {}, e.event), " – ", e.message, h("div", { class: "muted" }, formatDate(e.occurred_at)))));
-}
-
-function spotActions(spot) {
-  const buttons = [];
-  if (spot.status === "OPTAGET") buttons.push(["Bil kører", () => adminPost(`/admin/spots/${spot.id}/depart`, `Plads ${spot.label} er ledig igen`)]);
-  if (spot.status === "LEDIG") {
-    buttons.push(["Bil parkerer", () => adminPost(`/admin/spots/${spot.id}/occupy`, `Plads ${spot.label} er optaget`)]);
-    buttons.push(["Spær", () => setSpotStatus(spot, "SPAERRET")]);
+  el.classList.toggle("soon", soon);
+  $("#countdown-bar").classList.toggle("soon", soon);
+  $("#countdown-bar > div").style.width = `${progress(active)}%`;
+  if (el.textContent === "Udløbet") {
+    toast("Din reservation er udløbet, og pladsen er givet videre.", "error");
+    load();
   }
-  if (spot.status === "SPAERRET") buttons.push(["Ophæv spærring", () => setSpotStatus(spot, "LEDIG")]);
-  return h("div", { class: "actions" }, buttons.map(([label, fn]) => h("button", { class: "small secondary", onclick: fn }, label)));
+}
+setInterval(tick, 1000);
+
+async function arrive(r) {
+  const done = await run(() => api(`/reservations/${r.id}/arrive`, { method: "POST" }), "Ankomst registreret – god parkering!");
+  state.arrived = done;
+  load();
 }
 
-async function adminPost(path, message) {
-  await run(() => api(path, { method: "POST" }), message);
-  loadAll();
+function confirmCancel(r) {
+  openSheet("Annullér reservation?",
+    h("p", {}, `Plads ${r.spot_label} ved ${r.hotspot_name} bliver straks ledig for andre.`),
+    h("ul", { class: "facts" }, h("li", {}, h("span", {}, "Pris for annullering"), h("span", {}, state.info.fees.cancel))),
+    h("div", { class: "actions" },
+      h("button", { class: "secondary", onclick: closeSheet }, "Behold"),
+      h("button", { class: "danger", onclick: async () => {
+        await run(() => api(`/reservations/${r.id}/cancel`, { method: "POST" }), "Reservationen er annulleret");
+        closeSheet();
+        load();
+      } }, "Annullér")));
 }
 
-async function setSpotStatus(spot, status) {
-  await run(() => api(`/spots/${spot.id}`, { method: "PUT", body: { status } }), `Plads ${spot.label}: ${status}`);
-  loadAll();
+function showDirections(r) {
+  openSheet(`Vejvisning · plads ${r.spot_label}`,
+    h("p", {}, h("strong", {}, r.hotspot_name), h("br"), h("span", { class: "muted" }, r.hotspot_address)),
+    h("p", {}, r.hotspot_directions),
+    h("div", { class: "actions" },
+      h("a", { class: "button secondary", target: "_blank", rel: "noopener",
+               href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(r.hotspot_address)}` }, "Åbn i kort"),
+      h("button", { onclick: () => openHelp("problem") }, "Kan stadig ikke finde den")));
 }
 
-bindCrudForm($("#hotspot-form"), "hotspots", loadAll);
-bindCrudForm($("#spot-form"), "spots", loadAll);
+// ---------------------------------------------------------------- Hotspots
+function distanceKm(a, b) {
+  const rad = (d) => (d * Math.PI) / 180;
+  const x = Math.sin(rad(b.lat - a.lat) / 2) ** 2
+    + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lng - a.lng) / 2) ** 2;
+  return 6371 * 2 * Math.asin(Math.sqrt(x));
+}
 
-// ---------------------------------------------------------------- Start
-$("#customer-select").addEventListener("change", (event) => {
-  state.customerId = Number(event.target.value);
-  loadAll();
+function formatKm(km) {
+  return km < 1 ? `${Math.round(km * 1000)} m` : `${km.toLocaleString("da-DK", { maximumFractionDigits: 1 })} km`;
+}
+
+function visibleHotspots() {
+  const q = state.query.trim().toLowerCase();
+  let rows = state.hotspots.filter((hs) => !q || [hs.name, hs.address, hs.area].join(" ").toLowerCase().includes(q));
+  if (state.position) {
+    rows = rows.map((hs) => ({ ...hs, km: hs.lat == null ? null : distanceKm(state.position, hs) }))
+      .sort((a, b) => (a.km ?? 1e9) - (b.km ?? 1e9));
+  }
+  return rows;
+}
+
+function renderHotspots() {
+  const active = activeReservation();
+  const rows = visibleHotspots();
+  const totalFree = rows.reduce((sum, hs) => sum + hs.free, 0);
+
+  $("#list-meta").textContent = active
+    ? "Du har en aktiv reservation. Annullér den for at reservere et andet sted."
+    : state.query
+      ? `${rows.length} hotspot${rows.length === 1 ? "" : "s"} fundet`
+      : `${totalFree} ledige pladser på ${rows.length} hotspots${state.position ? " · sorteret efter afstand" : ""}`;
+
+  if (!rows.length) {
+    $("#hotspot-list").replaceChildren(h("li", { class: "empty" }, `Intet hotspot matcher »${state.query}«.`));
+    return;
+  }
+  $("#hotspot-list").replaceChildren(...rows.map((hs) => {
+    const full = hs.free === 0;
+    return h("li", { class: "hotspot" },
+      h("div", { class: "text" },
+        h("div", { class: "name" }, hs.name),
+        h("div", { class: "address", title: hs.address }, hs.km != null ? `${formatKm(hs.km)} · ` : "", hs.address)),
+      h("div", { class: "side" },
+        h("span", { class: `free ${full ? "none" : hs.free <= 1 ? "few" : ""}` },
+          full ? "Fuldt" : `${hs.free} ledig${hs.free === 1 ? "" : "e"} af ${hs.total}`),
+        full
+          ? h("button", { class: "secondary", onclick: () => showAlternatives(hs) }, "Alternativer")
+          : h("button", { disabled: !!active, onclick: () => confirmBooking(hs) }, "Reservér")));
+  }));
+}
+
+$("#search").addEventListener("input", (event) => {
+  state.query = event.target.value;
+  renderHotspots();
 });
 
-setupTabs();
-loadCustomers()
-  .then(loadAll)
-  .catch((err) => toast(`Kan ikke hente data fra backenden: ${err.message}`, "error"));
+$("#near-me").addEventListener("click", () => {
+  if (!navigator.geolocation) return toast("Din browser kan ikke finde din position", "error");
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      state.position = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      renderHotspots();
+    },
+    () => toast("Vi fik ikke lov at bruge din position – listen er sorteret efter navn", "error"),
+  );
+});
+
+// Gebyrer og regler vises, før kunden bekræfter
+function confirmBooking(hs) {
+  const fees = state.info.fees;
+  openSheet(`Reservér ved ${hs.name}`,
+    h("p", { class: "muted" }, hs.address),
+    h("ul", { class: "facts" },
+      h("li", {}, h("span", {}, "Pladsen holdes i"), h("span", {}, `${state.info.hold_minutes} minutter`)),
+      h("li", {}, h("span", {}, "Pris for reservation"), h("span", {}, fees.reservation)),
+      h("li", {}, h("span", {}, "Annullering"), h("span", {}, fees.cancel)),
+      h("li", {}, h("span", {}, "Kommer du for sent"), h("span", {}, `Udløber · ${fees.no_show}`))),
+    h("button", { class: "ghost small", onclick: showRules }, "Læs regler og vilkår"),
+    h("div", { class: "actions" },
+      h("button", { class: "secondary", onclick: closeSheet }, "Fortryd"),
+      h("button", { onclick: () => book(hs) }, "Bekræft")));
+}
+
+async function book(hs) {
+  try {
+    const r = await api("/reservations", { method: "POST", body: { customer_id: state.customerId, hotspot_id: hs.id } });
+    toast(`Plads ${r.spot_label} er reserveret til dig`);
+    closeSheet();
+    state.arrived = null;
+    await load();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } catch (err) {
+    await load();
+    const fresh = state.hotspots.find((x) => x.id === hs.id);
+    if (fresh && fresh.free === 0) showAlternatives(fresh, "Den sidste plads blev taget lige før dig.");
+    else toast(err.message, "error");
+  }
+}
+
+async function showAlternatives(hs, reason) {
+  const alternatives = await api(`/hotspots/${hs.id}/alternatives`);
+  openSheet(`${hs.name} er fuldt`,
+    h("p", {}, reason ? `${reason} ` : "", alternatives.length ? "Her er de nærmeste steder med ledige pladser:" : "Der er ingen ledige pladser andre steder lige nu."),
+    h("ul", { class: "hotspots" }, alternatives.map((alt) =>
+      h("li", { class: "hotspot" },
+        h("div", { class: "text" },
+          h("div", { class: "name" }, alt.name),
+          h("div", { class: "address", title: alt.address }, alt.distance_km != null ? `${formatKm(alt.distance_km)} væk · ` : "", alt.address)),
+        h("div", { class: "side" },
+          h("span", { class: "free" }, `${alt.free} ledig${alt.free === 1 ? "" : "e"}`),
+          h("button", { disabled: !!activeReservation(), onclick: () => confirmBooking(alt) }, "Reservér"))))));
+}
+
+// ---------------------------------------------------------------- Ark (dialog)
+function openSheet(title, ...content) {
+  stopChatPolling();
+  $("#sheet-title").textContent = title;
+  $("#sheet-body").replaceChildren(...content.flat(Infinity).filter(Boolean));
+  if (!$("#sheet").open) $("#sheet").showModal();
+}
+
+function closeSheet() {
+  $("#sheet").close();
+}
+
+$("#sheet-close").addEventListener("click", closeSheet);
+$("#sheet").addEventListener("close", stopChatPolling);
+$("#sheet").addEventListener("click", (event) => { if (event.target === $("#sheet")) closeSheet(); });   // klik på baggrunden
+
+// ---------------------------------------------------------------- Menu: historik, regler, privatliv
+const menu = $("#menu");
+$("#menu-open").addEventListener("click", (event) => {
+  event.stopPropagation();
+  menu.hidden = !menu.hidden;
+  $("#menu-open").setAttribute("aria-expanded", String(!menu.hidden));
+});
+document.addEventListener("click", () => { menu.hidden = true; });
+menu.addEventListener("click", (event) => {
+  const which = event.target.dataset.open;
+  if (!which) return;
+  menu.hidden = true;
+  ({ history: showHistory, rules: showRules, privacy: showPrivacy })[which]();
+});
+
+function textSections(sections) {
+  return sections.map((s) => [h("h3", {}, s.title), h("p", {}, s.text)]);
+}
+
+function showRules() {
+  openSheet("Regler og vilkår", textSections(state.info.rules));
+}
+
+function showPrivacy() {
+  openSheet("Privatliv", h("p", { class: "muted" }, "Kort fortalt: hvad appen gemmer, og hvad det bruges til."), textSections(state.info.privacy));
+}
+
+function showHistory() {
+  openSheet("Mine reservationer", state.reservations.length
+    ? h("ul", { class: "history" }, state.reservations.map((r) => {
+        const [label, variant] = RES_STATUS[r.status];
+        return h("li", {},
+          h("div", {}, h("div", {}, `${r.hotspot_name} · plads ${r.spot_label}`), h("div", { class: "sub" }, `${r.reservation_no} · ${formatDate(r.created_at)}`)),
+          h("div", {}, badge(label, variant)));
+      }))
+    : h("p", { class: "empty" }, "Du har ingen reservationer endnu."));
+}
+
+// ---------------------------------------------------------------- Hjælp: AI-chat, medarbejder, meld problem
+$("#help-open").addEventListener("click", () => openHelp("ai"));
+
+function openHelp(tab) {
+  const tabs = [["ai", "AI-chat"], ["staff", "Medarbejder"], ["problem", "Meld problem"]];
+  const body = h("div", {});
+  openSheet("Hjælp",
+    h("div", { class: "segmented", role: "tablist" }, tabs.map(([key, label]) =>
+      h("button", { class: key === tab ? "active" : "", role: "tab", onclick: () => openHelp(key) }, label))),
+    body);
+  ({ ai: renderAiChat, staff: renderStaff, problem: renderProblem })[tab](body);
+}
+
+function chatMessage(from, text, extra) {
+  const who = { ai: "AI-assistent", me: "Dig", staff: "Medarbejder", system: "" }[from];
+  const cls = from === "me" ? "me" : from === "system" ? "system" : "them";
+  return h("div", { class: `msg ${cls}` }, who && from !== "me" ? h("span", { class: "who" }, who) : null, text, extra);
+}
+
+function renderAiChat(body) {
+  const list = h("div", { class: "chat", "aria-live": "polite" }, state.aiMessages.map((m) =>
+    chatMessage(m.from, m.text, m.handoff ? h("div", {}, h("button", { class: "small", onclick: () => openHelp("staff") }, "Kontakt medarbejder")) : null)));
+  const input = h("input", { placeholder: "Skriv dit spørgsmål …", "aria-label": "Spørgsmål til AI-assistenten" });
+
+  async function ask(text) {
+    if (!text.trim()) return;
+    state.aiMessages.push({ from: "me", text });
+    try {
+      const res = await api("/assistant", { method: "POST", body: { text, customer_id: state.customerId } });
+      state.aiMessages.push({ from: "ai", text: res.answer, handoff: res.handoff });
+    } catch (err) {
+      state.aiMessages.push({ from: "ai", text: "Jeg kunne ikke svare lige nu. Prøv igen, eller kontakt en medarbejder.", handoff: true });
+    }
+    openHelp("ai");
+  }
+
+  body.append(
+    h("div", { class: "ai-note" }, "🤖 Du skriver med en AI-assistent, ikke et menneske. Svarene er automatiske og kan være forkerte."),
+    list,
+    state.aiMessages.length < 3 ? h("div", { class: "chips" },
+      ["Hvor længe gælder en reservation?", "Hvordan annullerer jeg?", "Hvad hvis jeg kommer for sent?", "Koster det noget?"]
+        .map((q) => h("button", { onclick: () => ask(q) }, q))) : "",
+    h("form", { class: "composer", onsubmit: (event) => { event.preventDefault(); ask(input.value); } },
+      input, h("button", {}, "Send")),
+    h("div", { class: "links", style: "text-align:center;margin-top:8px" },
+      h("button", { class: "ghost small", onclick: () => openHelp("staff") }, "Tal med en medarbejder i stedet")),
+  );
+  list.scrollTop = list.scrollHeight;
+  if (window.matchMedia("(min-width: 601px)").matches) input.focus();
+}
+
+async function renderStaff(body) {
+  const { support, staff } = state.info = await api("/info");   // hent friske åbningstider og hvem der er online
+  const cases = await api(`/support?customer_id=${state.customerId}`);
+  const open = cases.find((c) => c.status === "AABEN");
+
+  body.append(
+    h("p", {},
+      h("span", { class: `pill ${support.open_now ? "open" : "closed"}` }, h("span", { class: `dot ${support.open_now ? "on" : ""}` }), support.open_now ? "Åbent nu" : "Lukket nu"),
+      h("span", { class: "muted", style: "display:block;margin-top:4px" }, `Åbningstider: ${support.hours}`)),
+    h("a", { class: "button secondary", style: "width:100%", href: `tel:${support.phone.replace(/\s/g, "")}` }, `Ring ${support.phone}`),
+  );
+
+  if (open) {
+    body.append(h("h3", {}, `Din chat · ${open.case_no}${open.staff_name ? ` med ${open.staff_name}` : ""}`));
+    renderCaseChat(body, open);
+    return;
+  }
+
+  const input = h("textarea", { placeholder: "Hvad kan vi hjælpe med?", required: true, rows: 3, "aria-label": "Besked til medarbejder" });
+  body.append(
+    h("h3", {}, "Eller skriv med en medarbejder"),
+    h("form", { onsubmit: async (event) => {
+        event.preventDefault();
+        const staffId = Number(body.querySelector("input[name=staff]:checked")?.value) || null;
+        await run(() => api("/support", { method: "POST", body: { customer_id: state.customerId, staff_id: staffId, text: input.value } }), "Beskeden er sendt");
+        openHelp("staff");
+      } },
+      h("div", { class: "choices", role: "radiogroup", "aria-label": "Vælg medarbejder" },
+        h("label", { class: "choice" }, h("input", { type: "radio", name: "staff", value: "", checked: true }),
+          h("div", {}, h("div", {}, "Første ledige"), h("div", { class: "sub" }, "Hurtigste svar"))),
+        staff.map((s) => h("label", { class: "choice" },
+          h("input", { type: "radio", name: "staff", value: s.id }),
+          h("span", { class: `dot ${s.online ? "on" : ""}` }),
+          h("div", {}, h("div", {}, s.name), h("div", { class: "sub" }, `${s.role} · ${s.online ? "online" : "offline"}`))))),
+      input,
+      h("button", {}, "Start chat")),
+  );
+}
+
+function renderCaseChat(body, supportCase) {
+  const list = h("div", { class: "chat", "aria-live": "polite" });
+  const input = h("input", { placeholder: "Skriv en besked …", "aria-label": "Besked til medarbejder" });
+  const draw = (c) => {
+    list.replaceChildren(...c.messages.map((m) =>
+      chatMessage({ KUNDE: "me", MEDARBEJDER: "staff", SYSTEM: "system" }[m.sender], m.text)));
+    if (c.status === "AABEN" && c.messages.at(-1).sender === "KUNDE") list.append(chatMessage("system", "Venter på svar fra en medarbejder …"));
+    if (c.status === "LUKKET") list.append(chatMessage("system", "Chatten er afsluttet."));
+    list.scrollTop = list.scrollHeight;
+  };
+  draw(supportCase);
+  body.append(list,
+    h("form", { class: "composer", onsubmit: async (event) => {
+        event.preventDefault();
+        if (!input.value.trim()) return;
+        draw(await run(() => api(`/support/${supportCase.id}/messages`, { method: "POST", body: { sender: "KUNDE", text: input.value } })));
+        input.value = "";
+      } }, input, h("button", {}, "Send")));
+  // Hent nye svar fra medarbejderen, mens chatten er åben
+  state.chatTimer = setInterval(async () => draw(await api(`/support/${supportCase.id}`)), 4000);
+}
+
+function stopChatPolling() {
+  clearInterval(state.chatTimer);
+  state.chatTimer = null;
+}
+
+function renderProblem(body) {
+  const active = activeReservation();
+  if (!active) {
+    body.append(
+      h("p", {}, "Du kan melde et problem med pladsen, når du har en aktiv reservation."),
+      h("button", { class: "secondary", style: "width:100%", onclick: () => openHelp("staff") }, "Kontakt en medarbejder"));
+    return;
+  }
+  body.append(
+    h("p", { class: "muted" }, `Plads ${active.spot_label} ved ${active.hotspot_name}`),
+    h("div", { class: "big-choice" },
+      h("button", { onclick: () => report(active, "PLADS_OPTAGET") },
+        h("strong", {}, "Min plads er optaget"), h("span", {}, "Der holder en anden bil. Vi finder en ny plads til dig.")),
+      h("button", { onclick: () => report(active, "KAN_IKKE_FINDE") },
+        h("strong", {}, "Jeg kan ikke finde pladsen"), h("span", {}, "Få vejvisning, og en medarbejder hjælper dig."))));
+}
+
+async function report(r, type) {
+  const res = await run(() => api(`/reservations/${r.id}/report`, { method: "POST", body: { type } }));
+  await load();
+  const title = { MOVED: "Du har fået en ny plads", CANCELLED: "Ingen ledig plads her", HELP: "Hjælp er på vej" }[res.outcome];
+  openSheet(title,
+    res.outcome === "MOVED" && h("div", { class: "reservation", style: "margin-bottom:10px" },
+      h("div", { class: "top", style: "margin:0" },
+        h("div", { class: "spot-label" }, h("div", {}, h("small", {}, "PLADS"), res.reservation.spot_label)),
+        h("div", { class: "where" }, h("strong", {}, res.reservation.hotspot_name), h("span", {}, "Samme ankomstfrist som før")))),
+    h("p", {}, res.message),
+    res.outcome === "CANCELLED" && res.alternatives.length && [
+      h("h3", {}, "Ledige pladser tæt på"),
+      h("ul", { class: "hotspots" }, res.alternatives.map((alt) => h("li", { class: "hotspot" },
+        h("div", { class: "text" }, h("div", { class: "name" }, alt.name),
+          h("div", { class: "address" }, `${alt.free} ledige · ${formatKm(alt.distance_km)} væk`)),
+        h("div", { class: "side" }, h("button", { onclick: () => confirmBooking(alt) }, "Reservér"))))),
+    ],
+    h("div", { class: "actions" },
+      h("button", { class: "secondary", onclick: () => openHelp("staff") }, "Skriv med medarbejder"),
+      h("button", { onclick: closeSheet }, "OK")));
+}
+
+// ---------------------------------------------------------------- Start
+async function start() {
+  const [customer, info] = await Promise.all([api(`/customers/${state.customerId}`), api("/info")]);
+  Object.assign(state, { customer, info });
+  $("#menu-who").textContent = `Logget ind som ${customer.name} · ${customer.car_plate ?? ""}`;
+  await load();
+  setInterval(() => { if (!$("#sheet").open) load(); }, 15000);   // hold tallene friske
+}
+
+start().catch((err) => toast(`Kan ikke hente data fra backenden: ${err.message}`, "error"));

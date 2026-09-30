@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GreenMobility – Administrator</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body data-api-port="5102" class="admin">
+  <header class="appbar">
+    <div class="brand">
+      <span class="logo">GM</span>
+      <div><strong>GreenMobility</strong><small>Administrator</small></div>
+    </div>
+    <div class="appbar-actions">
+      <a class="button secondary" href="./">Kundeside</a>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="overview">Overblik</button>
+    <button data-tab="spots">Pladser</button>
+    <button data-tab="reservations">Reservationer</button>
+    <button data-tab="support">Henvendelser <span id="open-cases"></span></button>
+    <button data-tab="setup">Opsætning</button>
+  </nav>
+
+  <main>
+    <!-- Overblik: tal der stemmer -->
+    <section class="tab active" id="tab-overview">
+      <div class="card">
+        <h2>Pladser pr. hotspot</h2>
+        <p class="muted">Ledige + reserverede + optagede + spærrede skal give det samlede antal, og reserverede pladser skal svare til aktive reservationer.</p>
+        <div id="count-table"></div>
+      </div>
+      <div class="grid wide">
+        <div class="card">
+          <h2>Testkunder</h2>
+          <p class="muted">Åbn kundesiden som en bestemt kunde, fx i to vinduer for at afprøve samtidige reservationer.</p>
+          <div id="customer-table"></div>
+        </div>
+        <div class="card">
+          <h2>Hændelseslog</h2>
+          <ul class="list" id="event-list"></ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Pladser -->
+    <section class="tab" id="tab-spots">
+      <div class="card">
+        <h2>Pladser</h2>
+        <p class="muted">Simulér at biler ankommer og kører fra. En plads bliver først ledig, når afgangen registreres.</p>
+        <div id="spot-table"></div>
+      </div>
+    </section>
+
+    <!-- Reservationer -->
+    <section class="tab" id="tab-reservations">
+      <div class="card">
+        <h2>Alle reservationer</h2>
+        <div id="all-reservations"></div>
+      </div>
+    </section>
+
+    <!-- Henvendelser fra kunder -->
+    <section class="tab" id="tab-support">
+      <div class="grid wide">
+        <div class="card">
+          <h2>Henvendelser</h2>
+          <div class="case-list" id="case-list"></div>
+        </div>
+        <div class="card">
+          <h2 id="case-title">Vælg en henvendelse</h2>
+          <div class="chat" id="case-chat"></div>
+          <form class="composer" id="reply-form" hidden>
+            <select name="staff_id" data-number aria-label="Svar som"></select>
+            <input name="text" placeholder="Svar kunden …" required aria-label="Svar">
+            <button>Send</button>
+          </form>
+          <div class="actions" style="margin-top:8px"><button class="secondary small" id="close-case" hidden>Luk henvendelse</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Medarbejdere</h2>
+        <p class="muted">Kunden kan vælge en medarbejder direkte. Status vises i kundens hjælpeark.</p>
+        <div id="staff-table"></div>
+      </div>
+    </section>
+
+    <!-- Opsætning -->
+    <section class="tab" id="tab-setup">
+      <div class="grid wide">
+        <div class="card">
+          <h2>Hotspots</h2>
+          <form id="hotspot-form">
+            <input type="hidden" name="id">
+            <div class="row">
+              <label>Navn <input name="name" required></label>
+              <label>Område <input name="area"></label>
+            </div>
+            <label>Adresse <input name="address" required></label>
+            <div class="row">
+              <label>Breddegrad <input name="lat" type="number" step="any"></label>
+              <label>Længdegrad <input name="lng" type="number" step="any"></label>
+            </div>
+            <label>Vejvisning til pladserne <textarea name="directions"></textarea></label>
+            <div class="actions"><button>Gem hotspot</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
+          </form>
+          <div id="hotspot-table"></div>
+        </div>
+        <div class="card">
+          <h2>Tilføj plads</h2>
+          <form id="spot-form">
+            <input type="hidden" name="id">
+            <div class="row">
+              <label>Hotspot <select name="hotspot_id" data-number required></select></label>
+              <label>Pladsnavn <input name="label" required placeholder="fx A5"></label>
+            </div>
+            <div class="actions"><button>Gem plads</button></div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <details class="card">
+      <summary>Seneste JSON-svar fra API'et</summary>
+      <pre id="last-response" class="json">Ingen kald endnu</pre>
+    </details>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="api.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

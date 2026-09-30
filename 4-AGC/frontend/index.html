@@ -6,13 +6,26 @@
   <title>AGC QC Informationshub</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
-  <style>:root { --brand: #0b5c8a; --brand-dark: #083f5f; --brand-soft: #e2eff7; }</style>
+  <style>
+    :root { --brand: #0b5c8a; --brand-dark: #083f5f; --brand-soft: #e2eff7; }
+    /* Leverancer: Business Critical fremhæves med kant og baggrund, ikke kun farve på teksten (BR2) */
+    tr.critical td { background: #fdf0f0; }
+    tr.critical td:first-child { box-shadow: inset 4px 0 0 var(--danger); }
+    .overdue { color: var(--danger); font-weight: 600; }
+    td .badge { white-space: nowrap; }
+    .link { background: none; border: none; color: var(--brand-dark); padding: 0; text-align: left; font-weight: 600; text-decoration: underline; }
+    .link:hover { background: none; color: var(--brand); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    dl.facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0 0 12px; }
+    dl.facts dt { color: var(--muted); font-size: 0.85rem; }
+    dl.facts dd { margin: 0; }
+  </style>
 </head>
 <body data-api-port="5104">
   <header>
     <div>
       <h1>QC Informationshub</h1>
-      <p>AGC Biologics Copenhagen · automatisk indsamling, kontrol og målrettet deling</p>
+      <p>AGC Biologics Copenhagen · relevant information og fælles prioritering af leverancer</p>
     </div>
     <label style="color:#fff">Logget ind som (testkonto)
       <select id="user-select"></select>
@@ -20,16 +33,88 @@
   </header>
 
   <nav class="tabs">
-    <button class="active" data-tab="review">Til kontrol</button>
-    <button data-tab="search">Søg</button>
+    <button class="active" data-tab="home">Home</button>
+    <button data-tab="deliverables">Leverancer &amp; Prioritering</button>
+    <button data-tab="review">Til kontrol</button>
+    <button data-tab="search">Information</button>
     <button data-tab="shared">Delt med mig</button>
     <button data-tab="feed">Kilder og testfeed</button>
     <button data-tab="admin">Administration</button>
   </nav>
 
   <main>
+    <!-- Home / Informationshub (7.1) -->
+    <section class="tab active" id="tab-home">
+      <div class="kpis" id="home-kpis"></div>
+      <div class="grid wide">
+        <div class="card">
+          <h2>Vigtigst lige nu</h2>
+          <p class="muted">Aktive leverancer sorteret efter prioritet og deadline.</p>
+          <div id="home-deliverables"></div>
+          <div class="actions" style="margin-top:12px"><button data-goto="deliverables">Gå til Leverancer &amp; Prioritering</button></div>
+        </div>
+        <div class="card">
+          <h2>Seneste information</h2>
+          <div class="chips" id="home-categories"></div>
+          <form class="toolbar" id="home-search">
+            <label>Søg i informationen <input name="q" placeholder="fx vagtplan"></label>
+            <button>Søg</button>
+          </form>
+          <div id="home-info"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Leverancer & Prioritering (7.3–7.5) -->
+    <section class="tab" id="tab-deliverables">
+      <div class="card">
+        <h2>Leverancer &amp; Prioritering</h2>
+        <form class="toolbar" id="deliverable-filter">
+          <label>Prioritet <select name="priority"></select></label>
+          <label>Status <select name="status"></select></label>
+          <label>Ansvarligt team <select name="team_id"></select></label>
+          <label>Ansvarlig person <select name="owner_id"></select></label>
+          <label>Visning
+            <select name="view"><option value="aktive">Aktive</option><option value="afsluttede">Afsluttede</option><option value="alle">Alle</option></select>
+          </label>
+          <label><span><input type="checkbox" name="overdue" value="1"> Kun overskredne</span></label>
+          <button>Filtrér</button>
+          <button type="button" class="secondary" data-reset>Nulstil</button>
+        </form>
+        <div id="deliverable-table"></div>
+      </div>
+      <div class="grid wide">
+        <div class="card" id="deliverable-detail"><p class="empty">Vælg en leverance for at se detaljer, kommentarer og historik.</p></div>
+        <div class="card">
+          <h2 id="deliverable-form-title">Opret leverance</h2>
+          <p class="muted" id="deliverable-form-hint" hidden>Kun ledere kan oprette leverancer og ændre prioritet.</p>
+          <form id="deliverable-form">
+            <input type="hidden" name="id">
+            <input type="hidden" name="version">
+            <label>Titel <input name="title" required></label>
+            <label>Beskrivelse <textarea name="description"></textarea></label>
+            <div class="row">
+              <label>Prioritet <select name="priority" required></select></label>
+              <label>Status <select name="status"></select></label>
+            </div>
+            <div class="row">
+              <label>Ansvarligt team <select name="team_id" data-number></select></label>
+              <label>Ansvarlig person <select name="owner_id" data-number></select></label>
+            </div>
+            <label>Deadline <input type="date" name="deadline" required></label>
+            <label id="blocked-reason" hidden>Begrundelse for Blokeret <input name="blocked_reason"></label>
+            <label>Kobl til information (valgfrit) <select name="info_id" data-number></select></label>
+            <div class="actions">
+              <button>Gem leverance</button>
+              <button type="button" class="secondary" data-reset>Nulstil</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
     <!-- Til kontrol (leder) -->
-    <section class="tab active" id="tab-review">
+    <section class="tab" id="tab-review">
       <div class="grid wide">
         <div class="card">
           <h2>Til kontrol</h2>
@@ -56,6 +141,7 @@
         </form>
         <div id="search-results"></div>
       </div>
+      <div class="card" id="search-detail" hidden></div>
     </section>
 
     <!-- Delt med mig (medarbejder) -->

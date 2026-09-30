@@ -4,14 +4,19 @@ Prototypen undersøger, hvordan et samlet informationssystem kan reducere QC-led
 Kildeposter fra Outlook og Teams modtages **automatisk** gennem simulerede connectors. Systemet vurderer relevans, foreslår kategori og resumé,
 og lederen **kontrollerer, godkender og deler**, men skal ikke selv kopiere information ind.
 
-Kravgrundlag: [`Kravspecifikation.md`](Kravspecifikation.md)
+Efter fokusgruppen den 29. september 2026 er løsningen udvidet med **Leverancer & Prioritering**: et fælles overblik over, hvilke leverancer
+der er vigtigst, hvem der har ansvaret, hvornår de skal være færdige, og hvor langt de er. Informationshubben er uændret.
+
+Kravgrundlag: [`Kravspecifikation.md`](Kravspecifikation.md) og den reviderede kravspecifikation [`AGC_revideret_kravspecifikation_informationshub_prioritering (1).md`](<AGC_revideret_kravspecifikation_informationshub_prioritering (1).md>)
 
 ## Hvad kan prototypen
 
 | Skærm | Funktion |
 |---|---|
+| **Home** | Nøgletal (Business Critical, overskredne, blokerede, aktive), de fem vigtigste leverancer, seneste information, kategorigenveje og søgefelt |
+| **Leverancer & Prioritering** | Oversigt sorteret efter prioritet og deadline med filtre for prioritet, status, team, person, aktive/afsluttede og overskredne. Lederen ændrer prioritet direkte i oversigten. Leverancedetalje med ansvarlig, deadline, blokeringsgrund, koblet information, kommentarer og historik. Formular til at oprette og redigere leverancer (kun ledere) |
 | **Til kontrol** (leder) | Kø med relevante og tvetydige udkast. Detaljevisning med originalkilde, "hvorfor fanget", rettelse (ny version), godkendelse, fravalg, deling med forhåndsvisning samt delings- og hændelseshistorik |
-| **Søg** | Fritekst i titel/resumé kombineret med kategori, kildesystem og status. Kun tilladt indhold vises |
+| **Information** | Fritekst i titel/resumé kombineret med kategori, kildesystem og status. Kun tilladt indhold vises. *Åbn* viser informationsdetaljen med resumé, relevante teams og kilde |
 | **Delt med mig** (medarbejder) | Delte snapshots med knappen *Markér som læst* |
 | **Kilder og testfeed** | *Modtag næste testpost* sender en fiktiv Outlook- eller Teams-post gennem connectoren. Manuel note og hændelseslog |
 | **Administration** | CRUD for kategorier med nøgleord og for kategoriadgang (læs/redigér) |
@@ -56,6 +61,33 @@ flowchart LR
 | BR5 Delt version er uforanderlig | `share.snapshot` gemmer en JSON-kopi af den godkendte version |
 | BR7 Administrator ser ikke kildetekst | `can_view()` returnerer `False` for administrator |
 
+### Revideret krav: Leverancer & Prioritering
+
+Kravnumrene herunder er fra den reviderede kravspecifikation.
+
+| Krav | Implementering |
+|---|---|
+| F05 Relevans for teams/personer | `GET /api/info/<id>` returnerer `relevant_teams`: teams, hvis medlemmer har adgang til postens kategori |
+| F06, F07 Åbn information med opsummering | *Åbn* under Information og links på Home viser informationsdetaljen med resumé |
+| F08 Opret leverance | `POST /api/deliverables` (kun leder). Leverancen vises straks i oversigten |
+| F09 Prioritet | `PRIORITIES = Business Critical, High, Normal, Low`. Andre værdier giver 400 |
+| F10, BR2, NF02 Vigtigste øverst og tydeligt markeret | `ORDER BY priority_rank, deadline`. Business Critical-rækker har rød kant og baggrund, og prioriteten vises med symbol og tekst (▲▲, ▲, ●, ▽) |
+| F11 Ansvarligt team/person | `team_id` og `owner_id`. Mindst én skal være udfyldt |
+| F12, F13, NF03 Deadline og status i oversigten | Kolonnerne Prioritet, Leverance, Ansvarlig, Deadline og Status |
+| F14, BR4 Ændr prioritet | Lederen vælger ny prioritet direkte i oversigten → `PUT /api/deliverables/<id>`, og rækkefølgen opdateres med det samme |
+| F15 Ændr ansvarlig, deadline og status | *Redigér leverance* → `PUT /api/deliverables/<id>` med `expected_version` (409, hvis en anden har ændret den) |
+| F16 Kombinerede filtre | `GET /api/deliverables?priority=&status=&team_id=&owner_id=&overdue=1&view=` |
+| F17, E07 Overskredne deadlines | `overdue` beregnes: deadline før i dag og status ikke Afsluttet. Vises med rød dato og ⚠ Overskredet |
+| F18 Historik | Hver ændring logges i `event` med `deliverable_id`, bruger og tidspunkt: E03 oprettet, E04 prioritet, E05 ansvarlig, E06 status, E08 afsluttet, samt deadline og rettelser |
+| F19 Kobling til information | `info_id` på leverancen. Kun godkendt information kan kobles, og informationsdetaljen viser koblede leverancer |
+| BR1 Titel, prioritet, ansvarlig og deadline | `validate_deliverable()` giver 400 med en forklaring |
+| BR3, NF10 Kun relevante brugere ændrer prioritet | Kun rollen leder kan oprette og ændre. Medarbejdere ser oversigten og kan kommentere |
+| BR5, E08 Afsluttede kan stadig findes | Afsluttede er skjult fra *Aktive*, men findes under *Afsluttede* og *Alle* |
+| BR6 Blokeret kræver begrundelse | `blocked_reason` er påkrævet ved status Blokeret og vises på detaljen |
+| BR7 To adskilte funktioner, der kan forbindes | Egne tabeller og faneblade. Forbindes kun via det valgfri `info_id` |
+| NF07 Ingen dubletter ved gentagne klik | Knappen låses under kaldet, og en åben leverance med samme titel afvises med 409 |
+| Visuelt design: farve er ikke eneste indikator | Prioritet og status har altid symbol og tekst (fx ⛔ Blokeret, ✓ Afsluttet) |
+
 **Eksempel på kategoriregel:** Bemanding har nøgleordene *vagtplan, bemanding, ferie, sygdom, vikar, overarbejde*.
 "Ny vagtplan … ferie … vikarer" giver score 3 → Bemanding. "Kalibrering … bemanding" giver 1 til både Udstyr og Bemanding → Uklassificeret.
 
@@ -71,6 +103,12 @@ erDiagram
     SOURCE ||--o{ INFO : "source_id"
     USER ||--o{ SHARE : "sender_id"
     INFO ||--o{ SHARE : "info_id"
+    TEAM ||--o{ USER : "team_id"
+    TEAM ||--o{ DELIVERABLE : "team_id"
+    USER ||--o{ DELIVERABLE : "owner_id"
+    INFO ||--o{ DELIVERABLE : "info_id"
+    DELIVERABLE ||--o{ DELIVERABLE_COMMENT : "deliverable_id"
+    USER ||--o{ DELIVERABLE_COMMENT : "user_id"
     USER ||--o{ SHARE_RECIPIENT : "user_id"
     SHARE ||--o{ SHARE_RECIPIENT : "share_id"
     USER {
@@ -78,7 +116,35 @@ erDiagram
         TEXT name
         TEXT login
         TEXT role
+        INTEGER team_id FK
         INTEGER active
+    }
+    TEAM {
+        INTEGER id PK
+        TEXT name
+    }
+    DELIVERABLE {
+        INTEGER id PK
+        TEXT title
+        TEXT description
+        TEXT priority
+        INTEGER team_id FK
+        INTEGER owner_id FK
+        TEXT deadline
+        TEXT status
+        TEXT blocked_reason
+        INTEGER info_id FK
+        INTEGER version
+        INTEGER created_by FK
+        TEXT created_at
+        TEXT closed_at
+    }
+    DELIVERABLE_COMMENT {
+        INTEGER id PK
+        INTEGER deliverable_id FK
+        INTEGER user_id FK
+        TEXT text
+        TEXT created_at
     }
     CATEGORY {
         INTEGER id PK
@@ -133,6 +199,7 @@ erDiagram
         INTEGER id PK
         INTEGER source_id
         INTEGER info_id
+        INTEGER deliverable_id
         INTEGER actor_id
         TEXT type
         TEXT occurred_at
@@ -156,7 +223,9 @@ erDiagram
 | `info` | D2: udkast/godkendt post med resumé, kategori og version |
 | `category` · `category_access` | D3: kategorier, nøgleord og adgang |
 | `share` · `share_recipient` | D4: delinger med snapshot og læst-tidspunkt |
-| `event` | D5: hændelseslog |
+| `event` | D5: hændelseslog for både information og leverancer |
+| `team` | Teams, som brugere og leverancer tilhører |
+| `deliverable` · `deliverable_comment` | D6: leverancer med prioritet, ansvarlig, deadline og status samt kommentarer |
 | `test_feed` | Fiktive Outlook/Teams-poster, som connectoren afleverer |
 
 ## Eksempel på dataudveksling
@@ -280,13 +349,29 @@ Den fulde endepunktsliste står i [`backend/README.md`](backend/README.md).
 
 | Rolle | Konti |
 |---|---|
-| Leder | Hanne (alle kategorier), Peter (Quality, Udstyr), Sofie (Bemanding, Træning) |
-| Medarbejder | Ali, Bente, Carl, Dorte, Emil (forskellig læseadgang) |
+| Leder | Hanne (QC, alle kategorier), Peter (QA: Quality, Udstyr), Sofie (QC Træning: Bemanding, Træning) |
+| Medarbejder | Ali (QC), Bente (QA), Carl (Stability), Dorte (QC), Emil (QC Træning) med forskellig læseadgang |
 | Administrator | Ida |
 
 4 kategorier og 13 testfeed-poster med relevante, irrelevante, tvetydige og én dublet.
 De første 8 modtages automatisk, når databasen oprettes, så *Til kontrol* ikke er tom.
 
+4 teams og 7 leverancer, hvis deadlines regnes ud fra dags dato, når databasen oprettes:
+Batch Release 245 (Business Critical), Stability Report og CAPA-opfølgning (High, overskredet), Method Update og Kalibrering af HPLC 3 (Normal, blokeret),
+Træningsplan (Low) og Vagtplan uge 40 (afsluttet).
+
+**Demoscenarie (afsnit 20 i den reviderede kravspecifikation):** Log ind som Hanne → Home viser de vigtigste leverancer →
+*Gå til Leverancer & Prioritering* → skift Method Update til Business Critical i oversigten → leverancen rykker op og fremhæves →
+skift til Ali (medarbejder) og se samme rækkefølge uden mulighed for at ændre den.
+
 ## Afgrænsning
 
 Ingen rigtig Microsoft Graph-integration, adgangskode eller AI-resumé. Resuméet er de første sætninger, og kategoriseringen er en nøgleordsheuristik, som beskrevet i A4.
+
+For Leverancer & Prioritering gælder desuden:
+
+- **Ingen notifikationer (BR8).** Ændringer ses i oversigten og historikken, så der ikke skabes ny informationsbelastning.
+- **Ingen AI-forslag (F20)** og ingen automatisk prioritering. Prioriteten sættes altid af en leder.
+- **Alle ledere kan ændre alle leverancer.** Hvem der skal have rettigheden, og om prioriteringen er fælles eller pr. team, er åbne spørgsmål til AGC.
+- **Prioriteter og statusser er prototypeforslag** fra kravspecifikationen og skal valideres med AGC.
+- Ingen import fra Planner eller Excel.

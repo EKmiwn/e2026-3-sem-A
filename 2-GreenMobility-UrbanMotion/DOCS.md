@@ -1,19 +1,36 @@
 # GreenMobility – dokumentation af prototypen
 
 Prototypen lader en GreenMobility-kunde **reservere en ledig parkeringsplads ved et hotspot** før ankomst,
-så usikkerheden om at kunne parkere mindskes. En administrator kan simulere bilers ankomst og afgang.
+så usikkerheden om at kunne parkere mindskes. Kundesiden er enkel og mobilvenlig. Administratoren har sin egen side,
+hvor bilers ankomst og afgang simuleres, tallene kontrolleres, og kundehenvendelser besvares.
 
 Kravgrundlag: [`Kravspecifikation.MD`](Kravspecifikation.MD)
 
 ## Hvad kan prototypen
 
-| Skærm | Funktion |
-|---|---|
-| **Hotspots** | Oversigt over hotspots med antal ledige, reserverede og optagede pladser. Knappen *Reservér plads* |
-| **Mine reservationer** | Aktiv reservation med reservationsnummer, plads, ankomstfrist og nedtælling. Knapperne *Jeg er ankommet* og *Annullér*, plus historik |
-| **Administrator** | Alle pladser med knapper til at simulere *Bil kører*, *Bil parkerer* og *Spær*. Alle reservationer med *Simulér udløb*, CRUD for hotspots og pladser, samt hændelseslog |
+**Kundeside** (`/`, mobil først)
 
-Testkunden vælges i toppen (*Testbruger*), så man kan afprøve flere kunder mod de samme pladser.
+| Del | Funktion |
+|---|---|
+| **Hotspotliste** | Kompakte rækker med navn, adresse, antal ledige pladser og *Reservér*. Søgefelt øverst og *Nær mig* (sortér efter afstand) |
+| **Bekræft booking** | Før booking vises hvor længe pladsen holdes, og hvad reservation, annullering og udeblivelse koster |
+| **Fuldt hotspot** | Knappen *Alternativer* viser de nærmeste hotspots med ledige pladser. Tages den sidste plads lige før kunden, vises de også |
+| **Din reservation** | Øverst: pladsnummer, sted, nedtælling med bjælke og ankomstfrist. *Jeg er ankommet* (reserveret → optaget) og *Annullér* (pladsen bliver ledig) |
+| **Problem med pladsen?** | *Min plads er optaget* → ny plads ved samme hotspot, ellers gratis annullering + alternativer. *Jeg kan ikke finde pladsen* → vejvisning, og en medarbejder får besked |
+| **Hjælp** (grøn knap) | *AI-chat* (tydeligt markeret som AI), *Medarbejder* (åbningstider, ring, vælg medarbejder eller første ledige, chat) og *Meld problem* |
+| **Menu** (☰) | Mine reservationer, Regler og vilkår, Privatliv |
+
+**Administratorside** (`/admin.html`)
+
+| Fane | Funktion |
+|---|---|
+| **Overblik** | Ledige + reserverede + optagede + spærrede = i alt pr. hotspot, og reserverede = aktive reservationer (✓/✗). Testkunder med link til kundesiden. Hændelseslog |
+| **Pladser** | Simulér *Bil kører*, *Bil parkerer*, *Spær* / *Ophæv spærring* |
+| **Reservationer** | Alle reservationer med *Registrér ankomst* og *Simulér udløb* |
+| **Henvendelser** | Chat med kunder, svar som en bestemt medarbejder, luk henvendelser. Medarbejdere sættes online/offline |
+| **Opsætning** | CRUD for hotspots (inkl. koordinater og vejvisning) og pladser. Seneste rå JSON-svar |
+
+Kundesiden viser kunde 1. Vælg en anden testkunde med `?kunde=2` i adressen eller via *Testkunder* på administratorsiden.
 
 ## Fra krav til kode
 
@@ -21,9 +38,14 @@ Testkunden vælges i toppen (*Testbruger*), så man kan afprøve flere kunder mo
 |---|---|
 | En reservation holder pladsen i 20 minutter | `HOLD_MINUTES = 20`. `arrival_deadline` beregnes i `create_reservation()` |
 | Højst én aktiv reservation pr. kunde | Kontrol i `create_reservation()` (409) + unikt delvist indeks `one_active_per_customer` |
-| Højst én aktiv reservation pr. plads | Unikt delvist indeks `one_active_per_spot` |
+| Højst én aktiv reservation pr. plads – ingen dobbeltbooking | `create_reservation()` tager skrivelåsen med `BEGIN IMMEDIATE` (`begin_write()`), før den vælger en ledig plads, så to samtidige requests ikke kan få samme plads. Unikt delvist indeks `one_active_per_spot` som sidste værn. Testet med samtidige requests i `tests.py` |
 | Optagede, reserverede og spærrede pladser kan ikke reserveres | Kun pladser med status `LEDIG` vælges |
-| Ingen ledig plads → afvisning | 409: "Der er ingen ledige pladser ved …" |
+| Ingen ledig plads → afvisning + alternativer | 409, og `GET /api/hotspots/<id>/alternatives` giver de nærmeste hotspots med ledige pladser (afstand ud fra koordinater) |
+| Tal der stemmer | `with_check()`: ledige + reserverede + optagede + spærrede = i alt, og reserverede = aktive reservationer |
+| Gebyrer og regler vises før booking | `HOLD_MINUTES`, `RESERVATION_FEE_KR`, `CANCEL_FEE_KR`, `NO_SHOW_FEE_KR` → `GET /api/info`, så teksterne altid passer med reglerne |
+| Meld et problem | `report_problem()`: plads optaget → ny plads eller gratis annullering. Kan ikke finde → vejvisning + henvendelse |
+| AI-hjælp | `assistant()`: regelbaseret demo (nøgleord → svar). Ingen sprogmodel, intet gemmes. Kan ikke svare → tilbyder medarbejder |
+| Kontakt medarbejder | `create_case()` / `add_message()`. Vælg medarbejder direkte eller første ledige. Åbningstider i `SUPPORT_HOURS` |
 | Annullering frigiver pladsen | `cancel_reservation()` |
 | Manglende ankomst → udløb | `expire_overdue()` kører før hvert API-kald (`@app.before_request`) |
 | Ankomst: reserveret → optaget | `register_arrival()` |
@@ -46,6 +68,9 @@ erDiagram
     HOTSPOT ||--o{ SPOT : "hotspot_id"
     SPOT ||--o{ RESERVATION : "spot_id"
     CUSTOMER ||--o{ RESERVATION : "customer_id"
+    CUSTOMER ||--o{ SUPPORT_CASE : "customer_id"
+    STAFF ||--o{ SUPPORT_CASE : "staff_id"
+    SUPPORT_CASE ||--o{ SUPPORT_MESSAGE : "case_id"
     CUSTOMER {
         INTEGER id PK
         TEXT name
@@ -57,6 +82,9 @@ erDiagram
         TEXT name
         TEXT address
         TEXT area
+        REAL lat
+        REAL lng
+        TEXT directions
     }
     SPOT {
         INTEGER id PK
@@ -75,6 +103,29 @@ erDiagram
         TEXT arrived_at
         TEXT closed_at
     }
+    STAFF {
+        INTEGER id PK
+        TEXT name
+        TEXT role
+        INTEGER online
+    }
+    SUPPORT_CASE {
+        INTEGER id PK
+        TEXT case_no
+        INTEGER customer_id FK
+        INTEGER reservation_id FK
+        INTEGER staff_id FK
+        TEXT type
+        TEXT status
+        TEXT created_at
+    }
+    SUPPORT_MESSAGE {
+        INTEGER id PK
+        INTEGER case_id FK
+        TEXT sender
+        TEXT text
+        TEXT sent_at
+    }
     EVENT_LOG {
         INTEGER id PK
         TEXT occurred_at
@@ -88,8 +139,10 @@ erDiagram
 | Tabel | Rolle |
 |---|---|
 | `customer` | Fiktive testkunder |
-| `hotspot` · `spot` | Hotspots og deres pladser med status |
+| `hotspot` · `spot` | Hotspots (med koordinater og vejvisning) og deres pladser med status |
 | `reservation` | Reservationsnummer, frist og status |
+| `staff` | Medarbejdere, som kunden kan vælge i chatten |
+| `support_case` · `support_message` | Henvendelser (chat, plads optaget, kan ikke finde plads) og deres beskeder |
 | `event_log` | Hændelser: oprettet, annulleret, udløbet, ankomst og afgang |
 
 ## Eksempel på dataudveksling
@@ -158,7 +211,7 @@ Prototypen følger holdets fælles tre-lags struktur (se [`../README.md`](../REA
 ```mermaid
 flowchart LR
     subgraph Klient["Browser – præsentationslag"]
-        HTML["index.html + style.css"] --- JS["app.js"] --- API["api.js · api()"]
+        HTML["index.html · admin.html + style.css · app.css"] --- JS["app.js · admin.js"] --- API["api.js · api()"]
     end
     subgraph Server["Flask – logiklag"]
         ROUTES["app.py · endepunkter og forretningsregler"] --- CORE["core.py · run(), register_crud(), ApiError"]
@@ -172,32 +225,35 @@ flowchart LR
 
 | Fil | Lag | Indhold |
 |---|---|---|
-| `frontend/index.html` | Præsentation | Skærmbilleder som faneblade og formularer. Projektets farver og `data-api-port` |
-| `frontend/app.js` | Præsentation | Henter data med `api()`, tegner dem i DOM'en og sender formularer |
+| `frontend/index.html` · `app.js` | Præsentation | Kundesiden: hotspotliste, reservation, menu og hjælpeark |
+| `frontend/admin.html` · `admin.js` | Præsentation | Administratorsiden: faneblade, tabeller og formularer |
+| `frontend/app.css` | Præsentation | Projektets farver og komponenter – bruges af begge sider |
 | `frontend/api.js` | Præsentation | Fælles for alle prototyper: `api()` (fetch + JSON), `h()`, `renderTable()`, `fillSelect()`, `formToJson()`, `bindCrudForm()` og `toast()` |
 | `frontend/style.css` | Præsentation | Fælles responsivt design |
 | `backend/app.py` | Logik | Projektets forretningsregler og endepunkter |
 | `backend/core.py` | Logik | Fælles: `create_app()` (Flask, CORS, JSON-fejl), `run()` (start på ledig port), `ApiError` og `register_crud()` |
 | `backend/database.py` | Data | Fælles: forbindelse, `query_all/query_one/execute`, `transaction()` og `init_db()` |
 | `backend/schema.sql` · `seed.sql` | Data | Tabeller og fiktive testdata |
+| `backend/tests.py` | Test | Automatiske tests af reglerne: tal der stemmer, ingen dobbeltbooking, problemer, chat og assistent |
 
 Alle fejl returneres som JSON (`{"error": "…", "path": "/api/…"}`) med statuskode 400, 401, 403, 404 eller 409 og vises som en rød besked i frontenden.
-Nederst på siden kan man åbne **"Seneste JSON-svar fra API'et"** og se den rå dataudveksling.
+Nederst på administratorsiden kan man åbne **"Seneste JSON-svar fra API'et"** og se den rå dataudveksling.
 Den fulde endepunktsliste står i [`backend/README.md`](backend/README.md).
 
 ## Design og responsivitet
 
-- Samme stylesheet i alle prototyper. Kun farverne (`--brand`, `--brand-dark`, `--brand-soft`) sættes i `index.html`.
-- Layoutet virker fra mobil (375 px) til desktop uden vandret scroll. Kort lægger sig under hinanden på små skærme, og brede tabeller scroller inde i deres kort.
-- Formularfelter kan ikke blive bredere end deres kort. En `<select>` med lange valgmuligheder skubber altså ikke formularen ud over kanten.
+- Clean og lyst: lys baggrund, hvide afrundede bokse, grønne knapper og korte tekster. Farver, knapper og skrift står i `app.css`, som begge sider bruger, så appen føles sammenhængende.
+- Kundesiden er bygget til mobil (375 px) uden vandret scroll. Hotspots er kompakte rækker (adressen afkortes med … på smalle skærme), så man ser flere steder ad gangen.
+- Ark (bekræft booking, hjælp, regler osv.) glider op fra bunden på mobil og vises centreret på større skærme.
 - Beskeder vises kort i toppen (grøn = gennemført, rød = fejl fra serveren).
-
 
 ## Testdata
 
-3 kunder, 4 hotspots og 15 pladser. Nørreport har kun én ledig plads, og Lyngbyvej er helt optaget, så afvisningen kan afprøves.
+3 kunder, 9 hotspots, 29 pladser og 3 medarbejdere (én offline). Nørreport har kun én ledig plads, og Lyngbyvej og Valby er helt optaget,
+så alternativer og *Min plads er optaget* uden ledig plads kan afprøves. Telefonnummeret er fiktivt.
 
 ## Afgrænsning
 
-Betaling, sensorer, nummerpladegenkendelse, reservation frem i tiden og integration til GreenMobilitys app indgår ikke.
+Betaling, sensorer, nummerpladegenkendelse, reservation frem i tiden, rigtig login og integration til GreenMobilitys app indgår ikke.
+Gebyrerne er sat til 0 kr. (`*_FEE_KR` i `app.py`), indtil prisen er besluttet. AI-assistenten er regelbaseret og kan udskiftes med en sprogmodel bag samme endepunkt.
 Tid simuleres med knappen *Simulér udløb*, så man ikke skal vente 20 minutter.

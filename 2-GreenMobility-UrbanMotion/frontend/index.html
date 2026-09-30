@@ -6,87 +6,45 @@
   <title>GreenMobility – Hotspotparkering</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="style.css">
-  <style>:root { --brand: #1b8a5a; --brand-dark: #12613f; --brand-soft: #e3f4ec; }</style>
+  <link rel="stylesheet" href="app.css">
 </head>
 <body data-api-port="5102">
-  <header>
-    <div>
-      <h1>GreenMobility · Hotspot</h1>
-      <p>Reservér en parkeringsplads, inden du ankommer</p>
+  <header class="appbar">
+    <div class="brand">
+      <span class="logo">GM</span>
+      <div><strong>GreenMobility</strong><small>Hotspot-parkering</small></div>
     </div>
-    <label style="color:#fff">Testbruger
-      <select id="customer-select"></select>
-    </label>
+    <div class="appbar-actions">
+      <button class="help-btn" id="help-open">Hjælp</button>
+      <button class="icon-btn" id="menu-open" aria-label="Menu" aria-expanded="false">☰</button>
+    </div>
   </header>
 
-  <nav class="tabs">
-    <button class="active" data-tab="hotspots">Hotspots</button>
-    <button data-tab="mine">Mine reservationer</button>
-    <button data-tab="admin">Administrator</button>
+  <nav class="menu" id="menu" hidden>
+    <div class="who" id="menu-who"></div>
+    <button data-open="history">Mine reservationer</button>
+    <button data-open="rules">Regler og vilkår</button>
+    <button data-open="privacy">Privatliv</button>
   </nav>
 
-  <main>
-    <!-- Kunde: hotspots -->
-    <section class="tab active" id="tab-hotspots">
-      <div id="active-banner"></div>
-      <div class="grid" id="hotspot-cards"></div>
-    </section>
+  <main class="app">
+    <section id="my-reservation"></section>
 
-    <!-- Kunde: mine reservationer -->
-    <section class="tab" id="tab-mine">
-      <div id="active-reservation"></div>
-      <div class="card">
-        <h2>Historik</h2>
-        <div id="my-reservations"></div>
-      </div>
-    </section>
-
-    <!-- Administrator -->
-    <section class="tab" id="tab-admin">
-      <div class="card">
-        <h2>Pladser</h2>
-        <p class="muted">Simulér at biler ankommer og kører fra. En plads bliver først ledig, når afgangen registreres.</p>
-        <div id="spot-table"></div>
-      </div>
-      <div class="card">
-        <h2>Alle reservationer</h2>
-        <div id="all-reservations"></div>
-      </div>
-      <div class="grid wide">
-        <div class="card">
-          <h2>Hotspots</h2>
-          <form id="hotspot-form">
-            <input type="hidden" name="id">
-            <div class="row">
-              <label>Navn <input name="name" required></label>
-              <label>Område <input name="area"></label>
-            </div>
-            <label>Adresse <input name="address" required></label>
-            <div class="actions"><button>Gem hotspot</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
-          </form>
-          <div id="hotspot-table"></div>
-        </div>
-        <div class="card">
-          <h2>Tilføj plads</h2>
-          <form id="spot-form">
-            <input type="hidden" name="id">
-            <div class="row">
-              <label>Hotspot <select name="hotspot_id" data-number required></select></label>
-              <label>Pladsnavn <input name="label" required placeholder="fx A5"></label>
-            </div>
-            <div class="actions"><button>Gem plads</button></div>
-          </form>
-          <h3 style="margin-top:16px">Hændelseslog</h3>
-          <ul class="list" id="event-list"></ul>
-        </div>
-      </div>
-    </section>
-
-    <details class="card">
-      <summary>Seneste JSON-svar fra API'et</summary>
-      <pre id="last-response" class="json">Ingen kald endnu</pre>
-    </details>
+    <div class="search">
+      <input type="search" id="search" placeholder="Søg hotspot eller adresse" aria-label="Søg efter hotspot">
+      <button class="secondary" id="near-me" title="Sortér efter afstand til dig">Nær mig</button>
+    </div>
+    <p class="list-meta" id="list-meta"></p>
+    <ul class="hotspots" id="hotspot-list"></ul>
   </main>
+
+  <dialog class="sheet" id="sheet">
+    <div class="sheet-head">
+      <h2 id="sheet-title"></h2>
+      <button class="icon-btn" id="sheet-close" aria-label="Luk">✕</button>
+    </div>
+    <div class="sheet-body" id="sheet-body"></div>
+  </dialog>
 
   <div id="toast" class="toast"></div>
   <script src="api.js"></script>

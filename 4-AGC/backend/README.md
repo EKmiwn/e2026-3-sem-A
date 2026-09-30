@@ -2,7 +2,9 @@
 
 Simulerede Outlook/Teams-connectors afleverer kildeposter. Systemet vurderer relevans med nøgleord, foreslår kategori og resumé og lægger posten i “Til kontrol”. Lederen retter (ny version), godkender og deler et uforanderligt snapshot med medarbejdere, der har adgang. Testbrugeren sendes i headeren `X-User-Id`.
 
-Kravgrundlag: [`../Kravspecifikation.md`](../Kravspecifikation.md)
+**Leverancer & Prioritering:** Lederen opretter leverancer med prioritet, ansvarligt team/person, deadline og status. Oversigten sorteres med de vigtigste øverst, markerer overskredne deadlines, og alle ændringer logges som historik.
+
+Kravgrundlag: [`../Kravspecifikation.md`](../Kravspecifikation.md) og [`../AGC_revideret_kravspecifikation_informationshub_prioritering (1).md`](<../AGC_revideret_kravspecifikation_informationshub_prioritering (1).md>)
 
 ## Kør prototypen
 
@@ -28,11 +30,13 @@ backend/
   app.py            logiklag: forretningsregler og endepunkter for netop dette projekt
   core.py           fælles for alle prototyper: Flask-app, JSON-fejl, CORS og generisk CRUD
   database.py       fælles for alle prototyper: SQLite3-forbindelse og hjælpefunktioner
-  schema.sql        tabeller: user, category, category_access, source, info, share, share_recipient, event, test_feed
+  schema.sql        tabeller: team, user, category, category_access, source, info, share, share_recipient, event, test_feed,
+                    deliverable, deliverable_comment
   seed.sql          fiktive testdata
   requirements.txt
 frontend/
-  index.html        skærmbilleder: Til kontrol · Søg · Delt med mig · Kilder og testfeed · Administration
+  index.html        skærmbilleder: Home · Leverancer & Prioritering · Til kontrol · Information · Delt med mig ·
+                    Kilder og testfeed · Administration
   style.css         fælles stylesheet (projektfarver står i index.html)
   api.js            fælles klient: fetch() + JSON og små DOM-hjælpere
   app.js            præsentationslag for netop dette projekt
@@ -59,6 +63,12 @@ Fejl returneres altid som JSON: `{"error": "…", "path": "/api/…"}` med statu
 | `PUT` | `/api/category-access/<item_id>` | Opdatér (CRUD) |
 | `POST` | `/api/connectors/<system>` | Simuleret Outlook-/Teams-connector: modtager én kildepost som JSON. |
 | `POST` | `/api/connectors/simulate` | Afleverer næste fiktive post fra testfeedet gennem connectoren. |
+| `GET` | `/api/deliverable-options` | Valgmuligheder til leveranceformularen og filtrene: prioriteter, statusser, teams, personer og information. |
+| `GET` | `/api/deliverables` | Leveranceoversigt sorteret efter prioritet og deadline. ?priority=&status=&team_id=&owner_id=&q=&overdue=1&view=aktive\|afsluttede\|alle |
+| `POST` | `/api/deliverables` | F08: lederen opretter en leverance. En åben leverance med samme titel afvises (NF07: ingen dubletter). |
+| `GET` | `/api/deliverables/<deliverable_id>` | Leverancedetalje med kommentarer, historik over centrale ændringer og koblet information. |
+| `PUT` | `/api/deliverables/<deliverable_id>` | F14, F15: ret prioritet, ansvarlig, deadline, status m.m. (kræver expected_version). Ændringer logges (F18). |
+| `POST` | `/api/deliverables/<deliverable_id>/comments` | Kommentar på en leverance (leder og medarbejder). |
 | `GET` | `/api/events` | Hændelseslog (leder og administrator). |
 | `GET` | `/api/feed` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
 | `GET` | `/api/feed/<item_id>` | Hent én (CRUD) |
@@ -75,6 +85,11 @@ Fejl returneres altid som JSON: `{"error": "…", "path": "/api/…"}` med statu
 | `GET` | `/api/review-queue` | Til kontrol: udkast, som lederen må se. |
 | `GET` | `/api/shared-with-me` | Delinger til den indloggede medarbejder (snapshots). |
 | `POST` | `/api/shares/<share_id>/read` | Markér en deling som læst. |
+| `GET` | `/api/teams` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
+| `POST` | `/api/teams` | Opret (CRUD) |
+| `DELETE` | `/api/teams/<item_id>` | Slet (CRUD) |
+| `GET` | `/api/teams/<item_id>` | Hent én (CRUD) |
+| `PUT` | `/api/teams/<item_id>` | Opdatér (CRUD) |
 | `GET` | `/api/users` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
 | `POST` | `/api/users` | Opret (CRUD) |
 | `DELETE` | `/api/users/<item_id>` | Slet (CRUD) |

@@ -1,8 +1,8 @@
-# Amitylux – Experience Finder – prototype
+# Amitylux – Experience Compass – prototype
 
-Needs assessment → comparison of public/private/customised → transparent recommendation with reasons → filters → add-ons, guide wishes and contact → receipt and a standardised brief for staff. UI in English (NF-02).
+Start → preferences → check answers → up to three explained suggestions (adjust and see what changed) → compare public/private/customised → structured request with preview and receipt. Staff view with briefs, help requests and catalogue check. UI in English.
 
-Kravgrundlag: [`../Kravspecifikation.md`](../Kravspecifikation.md)
+Kravgrundlag: [`../kravspecifikation-2.md`](../kravspecifikation-2.md) (K1–K12) · Idé 1 i [`../prototype-ideer.md`](../prototype-ideer.md)
 
 ## Kør prototypen
 
@@ -25,14 +25,16 @@ Nulstil den med `python database.py --reset`.
 
 ```
 backend/
-  app.py            logiklag: forretningsregler og endepunkter for netop dette projekt
+  app.py            endepunkter, katalogkontrol (K9) og brief (K8)
+  compass.py        matchmotor uden Flask/SQLite: validering, begrundelser, roller, ændringer
+  tests.py          automatiske tests af K1–K12 (python tests.py)
   core.py           fælles for alle prototyper: Flask-app, JSON-fejl, CORS og generisk CRUD
   database.py       fælles for alle prototyper: SQLite3-forbindelse og hjælpefunktioner
-  schema.sql        tabeller: destination, product_type, experience, addon, inquiry, help_request
+  schema.sql        tabeller: destination, product_type, experience, value_claim, addon, inquiry, help_request
   seed.sql          fiktive testdata
   requirements.txt
 frontend/
-  index.html        skærmbilleder: Your trip · Compare · Recommendation + filters · Summary & send · Staff: inquiries · “Talk to a person” on every step
+  index.html        seks trin (Start · Preferences · Check · Suggestions · Compare · Request), Staff view, “Talk to a person”
   style.css         fælles stylesheet (projektfarver står i index.html)
   api.js            fælles klient: fetch() + JSON og små DOM-hjælpere
   app.js            præsentationslag for netop dette projekt
@@ -52,6 +54,9 @@ Fejl returneres altid som JSON: `{"error": "…", "path": "/api/…"}` med statu
 | `DELETE` | `/api/addons/<item_id>` | Slet (CRUD) |
 | `GET` | `/api/addons/<item_id>` | Hent én (CRUD) |
 | `PUT` | `/api/addons/<item_id>` | Opdatér (CRUD) |
+| `GET` | `/api/catalogue` | The approved catalogue in the same card structure as the suggestions (K5, K11). |
+| `GET` | `/api/catalogue/audit` | K9: for Amitylux – every row is checked for approval, missing K5 fields and undocumented value claims. |
+| `POST` | `/api/compass` | Up to three explained suggestions. Send {"preferences": {...}, "previous": {...}} to see what changed (K3). |
 | `GET` | `/api/destinations` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
 | `POST` | `/api/destinations` | Opret (CRUD) |
 | `DELETE` | `/api/destinations/<item_id>` | Slet (CRUD) |
@@ -62,22 +67,25 @@ Fejl returneres altid som JSON: `{"error": "…", "path": "/api/…"}` med statu
 | `DELETE` | `/api/experiences/<item_id>` | Slet (CRUD) |
 | `GET` | `/api/experiences/<item_id>` | Hent én (CRUD) |
 | `PUT` | `/api/experiences/<item_id>` | Opdatér (CRUD) |
-| `GET` | `/api/experiences/search` | Filters: destination_id, type, price_level (max), language, group_size, interest. |
 | `GET` | `/api/health` | Systemstatus |
 | `GET` | `/api/help-requests` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
-| `POST` | `/api/help-requests` | Opret (CRUD) |
-| `DELETE` | `/api/help-requests/<item_id>` | Slet (CRUD) |
+| `POST` | `/api/help-requests` | K8: 'Talk to a person' from any step. The answers so far are attached, so nothing has to be repeated. |
 | `GET` | `/api/help-requests/<item_id>` | Hent én (CRUD) |
-| `PUT` | `/api/help-requests/<item_id>` | Opdatér (CRUD) |
 | `GET` | `/api/inquiries` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
-| `POST` | `/api/inquiries` | Send a structured request – returns a receipt and the staff brief (F-08). |
-| `DELETE` | `/api/inquiries/<inquiry_id>` | Delete an inquiry. |
+| `POST` | `/api/inquiries` | K8: save the structured request and return a receipt plus the staff brief. |
 | `PUT` | `/api/inquiries/<inquiry_id>` | Update the status of an inquiry. |
-| `GET` | `/api/inquiries/<inquiry_id>/brief` | Standardised brief for staff (F-15). |
+| `GET` | `/api/inquiries/<inquiry_id>/brief` | Staff brief for one inquiry (K8). |
 | `GET` | `/api/inquiries/<item_id>` | Hent én (CRUD) |
+| `POST` | `/api/inquiries/preview` | K8: exactly what will be sent – nothing is saved. |
+| `GET` | `/api/options` | Answer options for the preference flow (K1) – the same lists the engine validates against. |
 | `GET` | `/api/product-types` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
 | `POST` | `/api/product-types` | Opret (CRUD) |
 | `DELETE` | `/api/product-types/<item_id>` | Slet (CRUD) |
 | `GET` | `/api/product-types/<item_id>` | Hent én (CRUD) |
 | `PUT` | `/api/product-types/<item_id>` | Opdatér (CRUD) |
-| `POST` | `/api/recommendations` | Recommendation: primary type + up to two alternatives, each with reasons (F-03). |
+| `GET` | `/api/value-claims` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
+| `POST` | `/api/value-claims` | Opret (CRUD) |
+| `DELETE` | `/api/value-claims/<item_id>` | Slet (CRUD) |
+| `GET` | `/api/value-claims/<item_id>` | Hent én (CRUD) |
+| `PUT` | `/api/value-claims/<item_id>` | Opdatér (CRUD) |
+

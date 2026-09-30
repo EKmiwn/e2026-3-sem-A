@@ -1,6 +1,7 @@
-"""AGC Biologics – informationshub for QC. Flask API (logiklag).
+"""AGC Biologics – informationshub for QC med Leverancer & Prioritering. Flask API (logiklag).
 
-Kravgrundlag: ../Kravspecifikation.md
+Kravgrundlag: ../Kravspecifikation.md og den reviderede kravspecifikation efter fokusgruppen
+(../AGC_revideret_kravspecifikation_informationshub_prioritering (1).md)
 Kør:  pip install -r requirements.txt  &&  python app.py  →  http://localhost:5104
 
 Testbrugeren vælges i frontenden og sendes i headeren X-User-Id (simuleret login).
@@ -8,6 +9,7 @@ Testbrugeren vælges i frontenden og sendes i headeren X-User-Id (simuleret logi
 import json
 import os
 import re
+from datetime import date
 
 from flask import jsonify, request
 
@@ -55,9 +57,10 @@ def can_edit(user, info):
     return category_permissions(user["id"]).get(info["category_id"]) == "redigér"
 
 
-def log_event(db, type_, details, source_id=None, info_id=None, actor_id=None):
-    db.execute("INSERT INTO event (source_id, info_id, actor_id, type, occurred_at, details) VALUES (?, ?, ?, ?, ?, ?)",
-               (source_id, info_id, actor_id, type_, now(), details))
+def log_event(db, type_, details, source_id=None, info_id=None, actor_id=None, deliverable_id=None):
+    db.execute("INSERT INTO event (source_id, info_id, deliverable_id, actor_id, type, occurred_at, details)"
+               " VALUES (?, ?, ?, ?, ?, ?, ?)",
+               (source_id, info_id, deliverable_id, actor_id, type_, now(), details))
 
 
 # ---------------------------------------------------------------- 2.0 Filtrér og strukturér (F03, F04, F05)
@@ -171,7 +174,8 @@ def check_version(info, data):
 
 
 # ---------------------------------------------------------------- CRUD (administration, F13)
-register_crud(app, "users", "user", fields=["name", "login", "role", "active"], required=["name", "login", "role"])
+register_crud(app, "users", "user", fields=["name", "login", "role", "team_id", "active"], required=["name", "login", "role"])
+register_crud(app, "teams", "team", fields=["name"], required=["name"], order_by="name")
 register_crud(app, "categories", "category", fields=["name", "keywords", "active"], required=["name", "keywords"])
 register_crud(app, "category-access", "category_access", fields=["user_id", "category_id", "permission"],
               required=["user_id", "category_id"])
@@ -246,7 +250,14 @@ def info_detail(info_id):
                           WHERE s.info_id = ? GROUP BY s.id ORDER BY s.id DESC""", (info_id,))
     history = query_all("""SELECT e.*, u.name AS actor_name FROM event e LEFT JOIN user u ON u.id = e.actor_id
                            WHERE e.info_id = ? OR e.source_id = ? ORDER BY e.id""", (info_id, info["source_id"]))
-    return jsonify(info=info, source=source, shares=shares, history=history, can_edit=can_edit(user, info))
+    # F05: informationen er relevant for de teams, hvis medlemmer har adgang til kategorien
+    teams = query_all("""SELECT DISTINCT t.name FROM category_access a JOIN user u ON u.id = a.user_id
+                         JOIN team t ON t.id = u.team_id WHERE a.category_id = ? ORDER BY t.name""",
+                      (info["category_id"],))
+    deliverables = query_all("SELECT id, title, priority, status FROM deliverable WHERE info_id = ? ORDER BY id",
+                             (info_id,))
+    return jsonify(info=info, source=source, shares=shares, history=history, can_edit=can_edit(user, info),
+                   relevant_teams=[t["name"] for t in teams], deliverables=deliverables)
 
 
 @app.put("/api/info/<int:info_id>")
@@ -395,6 +406,226 @@ def events():
     require_role(user, "leder", "administrator")
     return jsonify(query_all("""SELECT e.*, u.name AS actor_name FROM event e LEFT JOIN user u ON u.id = e.actor_id
                                 ORDER BY e.id DESC LIMIT 100"""))
+
+
+# ---------------------------------------------------------------- 5.0 Leverancer & Prioritering (F08–F19)
+PRIORITIES = ["Business Critical", "High", "Normal", "Low"]      # rækkefølgen er vigtigheden (F10, BR2)
+STATUSES = ["Ikke startet", "I gang", "Afventer", "Blokeret", "Afsluttet"]
+DELIVERABLE_FIELDS = ("title", "description", "priority", "team_id", "owner_id", "deadline", "status",
+                      "blocked_reason", "info_id")
+
+DELIVERABLE_SQL = """
+    SELECT d.*, t.name AS team_name, o.name AS owner_name, c.name AS created_by_name, i.title AS info_title,
+           CASE d.priority WHEN 'Business Critical' THEN 1 WHEN 'High' THEN 2 WHEN 'Normal' THEN 3 ELSE 4 END
+               AS priority_rank,
+           d.status != 'Afsluttet' AND d.deadline < date('now', 'localtime') AS overdue
+    FROM deliverable d
+    LEFT JOIN team t ON t.id = d.team_id
+    LEFT JOIN user o ON o.id = d.owner_id
+    JOIN user c ON c.id = d.created_by
+    LEFT JOIN info i ON i.id = d.info_id
+"""
+DELIVERABLE_ORDER = " ORDER BY priority_rank, d.deadline, d.id"
+
+
+def with_flags(row):
+    row["overdue"] = bool(row["overdue"])      # F17, E07: deadline passeret og ikke afsluttet
+    return row
+
+
+def get_deliverable(deliverable_id):
+    row = query_one(DELIVERABLE_SQL + " WHERE d.id = ?", (deliverable_id,))
+    if row is None:
+        raise ApiError(f"Leverance {deliverable_id} findes ikke", 404)
+    return with_flags(row)
+
+
+def responsible_label(team_id, owner_id):
+    team = team_id and query_one("SELECT name FROM team WHERE id = ?", (team_id,))
+    owner = owner_id and query_one("SELECT name FROM user WHERE id = ?", (owner_id,))
+    return " / ".join(x["name"] for x in (team, owner) if x) or "ingen"
+
+
+def clean_deliverable(data):
+    """Tomme felter bliver til NULL, og id'er bliver til tal."""
+    clean = {k: (None if data[k] in ("", None) else data[k]) for k in DELIVERABLE_FIELDS if k in data}
+    for key in ("team_id", "owner_id", "info_id"):
+        if clean.get(key) is not None:
+            clean[key] = int(clean[key])
+    for key in ("title", "description", "blocked_reason"):
+        if isinstance(clean.get(key), str):
+            clean[key] = clean[key].strip() or None
+    return clean
+
+
+def validate_deliverable(data):
+    """BR1: titel, prioritet, ansvarlig og deadline. BR6: Blokeret kræver en begrundelse."""
+    require(data, "title", "priority", "deadline")
+    if data["priority"] not in PRIORITIES:
+        raise ApiError("Prioritet skal være en af: " + ", ".join(PRIORITIES))
+    if data["status"] not in STATUSES:
+        raise ApiError("Status skal være en af: " + ", ".join(STATUSES))
+    if not data.get("team_id") and not data.get("owner_id"):
+        raise ApiError("Angiv et ansvarligt team eller en ansvarlig person (BR1)")
+    if data.get("team_id"):
+        get_or_404("team", data["team_id"], "Team")
+    if data.get("owner_id"):
+        owner = get_or_404("user", data["owner_id"], "Bruger")
+        if owner["role"] == "administrator" or not owner["active"]:
+            raise ApiError(f"{owner['name']} kan ikke være ansvarlig for en leverance")
+    try:
+        date.fromisoformat(data["deadline"])
+    except ValueError:
+        raise ApiError("Deadline skal være en dato (ÅÅÅÅ-MM-DD)")
+    if data["status"] == "Blokeret" and not data.get("blocked_reason"):
+        raise ApiError("Status Blokeret kræver en kort begrundelse (BR6)")
+    if data.get("info_id"):
+        info = get_info(data["info_id"])
+        if info["status"] != "GODKENDT":
+            raise ApiError("Kun godkendt information kan kobles til en leverance")
+
+
+@app.get("/api/deliverable-options")
+def deliverable_options():
+    """Valgmuligheder til leveranceformularen og filtrene: prioriteter, statusser, teams, personer og information."""
+    user = current_user()
+    require_role(user, "leder", "medarbejder")
+    infos = [{"id": i["id"], "title": i["title"]}
+             for i in query_all(INFO_SQL + " WHERE i.status = 'GODKENDT' ORDER BY i.title") if can_view(user, i)]
+    return jsonify(priorities=PRIORITIES, statuses=STATUSES,
+                   teams=query_all("SELECT id, name FROM team ORDER BY name"),
+                   people=query_all("""SELECT u.id, u.name, t.name AS team_name FROM user u
+                                       LEFT JOIN team t ON t.id = u.team_id
+                                       WHERE u.active = 1 AND u.role != 'administrator' ORDER BY u.name"""),
+                   infos=infos, can_edit=user["role"] == "leder")
+
+
+@app.get("/api/deliverables")
+def list_deliverables():
+    """Leveranceoversigt sorteret efter prioritet og deadline.
+    ?priority=&status=&team_id=&owner_id=&q=&overdue=1&view=aktive|afsluttede|alle"""
+    user = current_user()
+    require_role(user, "leder", "medarbejder")
+    sql, params = DELIVERABLE_SQL + " WHERE 1 = 1", []
+    for arg, column in (("priority", "d.priority"), ("status", "d.status"), ("team_id", "d.team_id"),
+                        ("owner_id", "d.owner_id")):
+        if request.args.get(arg):
+            sql += f" AND {column} = ?"
+            params.append(request.args[arg])
+    if request.args.get("q"):
+        sql += " AND (d.title LIKE ? OR d.description LIKE ?)"
+        params += [f"%{request.args['q']}%"] * 2
+    if request.args.get("overdue") in ("1", "true"):
+        sql += " AND d.status != 'Afsluttet' AND d.deadline < date('now', 'localtime')"
+    view = request.args.get("view", "aktive")
+    if not request.args.get("status"):          # E08: afsluttede ligger for sig, men kan stadig findes (BR5)
+        if view == "aktive":
+            sql += " AND d.status != 'Afsluttet'"
+        elif view == "afsluttede":
+            sql += " AND d.status = 'Afsluttet'"
+    return jsonify([with_flags(r) for r in query_all(sql + DELIVERABLE_ORDER, params)])
+
+
+@app.get("/api/deliverables/<int:deliverable_id>")
+def deliverable_detail(deliverable_id):
+    """Leverancedetalje med kommentarer, historik over centrale ændringer og koblet information."""
+    user = current_user()
+    require_role(user, "leder", "medarbejder")
+    deliverable = get_deliverable(deliverable_id)
+    comments = query_all("""SELECT c.*, u.name AS user_name FROM deliverable_comment c JOIN user u ON u.id = c.user_id
+                            WHERE c.deliverable_id = ? ORDER BY c.id""", (deliverable_id,))
+    history = query_all("""SELECT e.*, u.name AS actor_name FROM event e LEFT JOIN user u ON u.id = e.actor_id
+                           WHERE e.deliverable_id = ? ORDER BY e.id DESC""", (deliverable_id,))
+    info = None
+    if deliverable["info_id"]:
+        linked = get_info(deliverable["info_id"])
+        if can_view(user, linked):
+            info = {k: linked[k] for k in ("id", "title", "summary", "category_name", "system")}
+    return jsonify(deliverable=deliverable, comments=comments, history=history, info=info,
+                   can_edit=user["role"] == "leder")
+
+
+@app.post("/api/deliverables")
+def create_deliverable():
+    """F08: lederen opretter en leverance. En åben leverance med samme titel afvises (NF07: ingen dubletter)."""
+    user = current_user()
+    require_role(user, "leder")
+    data = {"status": "Ikke startet", **clean_deliverable(json_body())}
+    validate_deliverable(data)
+    if data["status"] != "Blokeret":
+        data["blocked_reason"] = None
+    if query_one("SELECT id FROM deliverable WHERE lower(title) = lower(?) AND status != 'Afsluttet'", (data["title"],)):
+        raise ApiError(f"Der findes allerede en åben leverance med titlen '{data['title']}'", 409)
+    row = {k: data.get(k) for k in DELIVERABLE_FIELDS}
+    with transaction() as db:
+        cur = db.execute(
+            f"INSERT INTO deliverable ({', '.join(row)}, created_by, created_at, closed_at)"
+            f" VALUES ({', '.join('?' for _ in row)}, ?, ?, ?)",
+            (*row.values(), user["id"], now(), now() if data["status"] == "Afsluttet" else None))
+        log_event(db, "E03 LeveranceOprettet",
+                  f"{data['priority']} · {responsible_label(data.get('team_id'), data.get('owner_id'))} · "
+                  f"deadline {data['deadline']}", actor_id=user["id"], deliverable_id=cur.lastrowid)
+    return jsonify(get_deliverable(cur.lastrowid)), 201
+
+
+@app.put("/api/deliverables/<int:deliverable_id>")
+def update_deliverable(deliverable_id):
+    """F14, F15: ret prioritet, ansvarlig, deadline, status m.m. (kræver expected_version). Ændringer logges (F18)."""
+    user = current_user()
+    require_role(user, "leder")      # BR3: kun ledere ændrer prioritet og ansvar
+    existing = get_deliverable(deliverable_id)
+    body = json_body()
+    check_version(existing, body)
+    changes = {k: v for k, v in clean_deliverable(body).items() if v != existing[k]}
+    if not changes:
+        raise ApiError("Intet at rette")
+    data = {**{k: existing[k] for k in DELIVERABLE_FIELDS}, **changes}
+    validate_deliverable(data)
+    if data["status"] != "Blokeret":
+        data["blocked_reason"] = None
+
+    events = []
+    if "priority" in changes:
+        events.append(("E04 PrioritetÆndret", f"{existing['priority']} → {data['priority']}"))
+    if "team_id" in changes or "owner_id" in changes:
+        events.append(("E05 AnsvarligÆndret", f"{responsible_label(existing['team_id'], existing['owner_id'])} → "
+                                              f"{responsible_label(data['team_id'], data['owner_id'])}"))
+    if "status" in changes:
+        reason = f": {data['blocked_reason']}" if data["status"] == "Blokeret" else ""
+        type_ = "E08 LeveranceAfsluttet" if data["status"] == "Afsluttet" else "E06 StatusÆndret"
+        events.append((type_, f"{existing['status']} → {data['status']}{reason}"))
+    if "deadline" in changes:
+        events.append(("DeadlineÆndret", f"{existing['deadline']} → {data['deadline']}"))
+    edited = [k for k in ("title", "description", "info_id") if k in changes]
+    if edited:
+        events.append(("LeveranceRettet", "Ændret: " + ", ".join(edited)))
+
+    closed_at = existing["closed_at"]
+    if data["status"] == "Afsluttet" and existing["status"] != "Afsluttet":
+        closed_at = now()
+    elif data["status"] != "Afsluttet":
+        closed_at = None
+    row = {k: data[k] for k in DELIVERABLE_FIELDS}
+    with transaction() as db:
+        db.execute(f"UPDATE deliverable SET {', '.join(f'{k} = ?' for k in row)}, closed_at = ?, updated_at = ?,"
+                   " version = version + 1 WHERE id = ?", (*row.values(), closed_at, now(), deliverable_id))
+        for type_, details in events:
+            log_event(db, type_, details, actor_id=user["id"], deliverable_id=deliverable_id)
+    return jsonify(get_deliverable(deliverable_id))
+
+
+@app.post("/api/deliverables/<int:deliverable_id>/comments")
+def comment_deliverable(deliverable_id):
+    """Kommentar på en leverance (leder og medarbejder)."""
+    user = current_user()
+    require_role(user, "leder", "medarbejder")
+    get_deliverable(deliverable_id)
+    data = json_body()
+    require(data, "text")
+    with transaction() as db:
+        cur = db.execute("INSERT INTO deliverable_comment (deliverable_id, user_id, text, created_at) VALUES (?, ?, ?, ?)",
+                         (deliverable_id, user["id"], data["text"].strip(), now()))
+    return jsonify(query_one("SELECT * FROM deliverable_comment WHERE id = ?", (cur.lastrowid,))), 201
 
 
 def deliver_initial_feed(count=8):

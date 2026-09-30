@@ -1,14 +1,16 @@
--- Fiktive testdata: 3 ledere, 5 medarbejdere, 1 administrator, 4 kategorier
-INSERT INTO user (name, login, role) VALUES
-  ('Hanne Leder', 'hanne', 'leder'),
-  ('Peter Leder', 'peter', 'leder'),
-  ('Sofie Leder', 'sofie', 'leder'),
-  ('Ali Medarbejder', 'ali', 'medarbejder'),
-  ('Bente Medarbejder', 'bente', 'medarbejder'),
-  ('Carl Medarbejder', 'carl', 'medarbejder'),
-  ('Dorte Medarbejder', 'dorte', 'medarbejder'),
-  ('Emil Medarbejder', 'emil', 'medarbejder'),
-  ('Ida Administrator', 'ida', 'administrator');
+-- Fiktive testdata: 4 teams, 3 ledere, 5 medarbejdere, 1 administrator, 4 kategorier, 7 leverancer
+INSERT INTO team (name) VALUES ('QC'), ('QA'), ('Stability'), ('QC Træning');
+
+INSERT INTO user (name, login, role, team_id) VALUES
+  ('Hanne Leder', 'hanne', 'leder', 1),
+  ('Peter Leder', 'peter', 'leder', 2),
+  ('Sofie Leder', 'sofie', 'leder', 4),
+  ('Ali Medarbejder', 'ali', 'medarbejder', 1),
+  ('Bente Medarbejder', 'bente', 'medarbejder', 2),
+  ('Carl Medarbejder', 'carl', 'medarbejder', 3),
+  ('Dorte Medarbejder', 'dorte', 'medarbejder', 1),
+  ('Emil Medarbejder', 'emil', 'medarbejder', 4),
+  ('Ida Administrator', 'ida', 'administrator', NULL);
 
 INSERT INTO category (name, keywords) VALUES
   ('Bemanding', 'vagtplan,bemanding,ferie,sygdom,vikar,overarbejde'),
@@ -40,3 +42,23 @@ INSERT INTO test_feed (system, external_id, sender, channel, title, text) VALUES
   ('Outlook', 'MSG-0006', 'service@leverandor.test', NULL, 'Servicebesøg på instrument', 'Serviceteknikeren kommer tirsdag for vedligehold af instrument 7 og kalibrering.'),
   ('Outlook', 'MSG-0007', 'træning@agc.test', NULL, 'Certificering udløber', 'Certificering for tre analytikere udløber i november. Planlæg træning og introduktion.'),
   ('Teams', 'TMS-0001', 'Lab-teamet', 'QC Lab', 'HPLC 3 nede (gentaget)', 'Samme besked sendt igen – skal ikke give en dublet.');
+
+-- Leverancer med deadlines i forhold til dags dato, så én altid er overskredet (F17)
+INSERT INTO deliverable (title, description, priority, team_id, owner_id, deadline, status, blocked_reason, created_by, created_at, closed_at) VALUES
+  ('Batch Release 245', 'Frigivelse af batch 245 kræver færdige QC-analyser og QA-review.', 'Business Critical', 2, 5, date('now', 'localtime', '+2 days'), 'I gang', NULL, 1, datetime('now', 'localtime', '-5 days'), NULL),
+  ('Stability Report', 'Kvartalsvis stabilitetsrapport for produkt B.', 'High', 3, 6, date('now', 'localtime', '+4 days'), 'Afventer', NULL, 1, datetime('now', 'localtime', '-6 days'), NULL),
+  ('Method Update', 'Opdatering af analysemetode efter ny SOP QC-014.', 'Normal', 1, 4, date('now', 'localtime', '+8 days'), 'Ikke startet', NULL, 2, datetime('now', 'localtime', '-2 days'), NULL),
+  ('CAPA-opfølgning DEV-2231', 'Vurdér CAPA for afvigelsen på batch 118 inden audit.', 'High', 2, NULL, date('now', 'localtime', '-1 days'), 'I gang', NULL, 2, datetime('now', 'localtime', '-9 days'), NULL),
+  ('Kalibrering af HPLC 3', 'HPLC 3 skal kalibreres, før den tages i brug igen.', 'Normal', 1, 7, date('now', 'localtime', '+5 days'), 'Blokeret', 'Afventer servicetekniker fra leverandøren', 1, datetime('now', 'localtime', '-3 days'), NULL),
+  ('Træningsplan for nye analytikere', 'Plan for oplæring og certificering i Q4.', 'Low', 4, 8, date('now', 'localtime', '+20 days'), 'Ikke startet', NULL, 3, datetime('now', 'localtime', '-1 days'), NULL),
+  ('Vagtplan uge 40', 'Bemanding af laboratoriet i uge 40.', 'Normal', 1, NULL, date('now', 'localtime', '-3 days'), 'Afsluttet', NULL, 1, datetime('now', 'localtime', '-12 days'), datetime('now', 'localtime', '-4 days'));
+
+INSERT INTO deliverable_comment (deliverable_id, user_id, text, created_at) VALUES
+  (1, 5, 'QC-analyserne er modtaget. QA-review starter i morgen.', datetime('now', 'localtime', '-1 days')),
+  (5, 1, 'Leverandøren har bekræftet besøg på tirsdag.', datetime('now', 'localtime', '-1 days'));
+
+INSERT INTO event (deliverable_id, actor_id, type, occurred_at, details) VALUES
+  (1, 1, 'E03 LeveranceOprettet', datetime('now', 'localtime', '-5 days'), 'High · deadline sat'),
+  (1, 1, 'E04 PrioritetÆndret', datetime('now', 'localtime', '-2 days'), 'High → Business Critical'),
+  (1, 2, 'E06 StatusÆndret', datetime('now', 'localtime', '-2 days'), 'Ikke startet → I gang'),
+  (7, 1, 'E08 LeveranceAfsluttet', datetime('now', 'localtime', '-4 days'), 'I gang → Afsluttet');

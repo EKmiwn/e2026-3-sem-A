@@ -1,6 +1,8 @@
 # GreenMobility – Reservation af hotspotparkering – prototype
 
-Kunden reserverer en ledig plads ved et hotspot i 20 minutter, kan annullere eller registrere ankomst. Reservationer udløber automatisk, og administratoren simulerer bilers ankomst og afgang.
+Kunden søger efter et hotspot, reserverer en ledig plads i 20 minutter og kan annullere, bekræfte ankomst eller melde et problem med pladsen.
+Er et hotspot fuldt, vises de nærmeste alternativer. Hjælp-knappen giver AI-chat (regelbaseret demo) og kontakt til en medarbejder.
+Administratoren har sin egen side, hvor bilers ankomst og afgang simuleres, og hvor kundehenvendelser besvares.
 
 Kravgrundlag: [`../Kravspecifikation.MD`](../Kravspecifikation.MD)
 
@@ -13,13 +15,14 @@ pip install -r requirements.txt                       # første gang
 python app.py
 ```
 
-Åbn **http://localhost:5102** – Flask serverer både API'et (`/api/...`) og frontenden fra `../frontend`.
+Åbn **http://localhost:5102** (kundeside) og **http://localhost:5102/admin.html** (administrator) – Flask serverer både API'et (`/api/...`) og frontenden fra `../frontend`.
+Kundesiden viser kunde 1. Vælg en anden testkunde med `?kunde=2` eller via *Testkunder* på administratorsiden.
 Er porten optaget, vælger serveren selv den næste ledige port og skriver adressen i terminalen
 (fx ` * Port 5102 er optaget – bruger port 5103 i stedet`). Du kan også vælge port selv med `PORT=5200 python app.py`.
 `frontend/index.html` kan også åbnes direkte fra disken. Så kalder den `http://localhost:5102/api` (attributten `data-api-port` i `index.html`).
 
 Databasen `backend/database.db` (SQLite3) oprettes og fyldes med fiktive testdata fra `seed.sql` ved første start.
-Nulstil den med `python database.py --reset`.
+Nulstil den med `python database.py --reset`. Kør testene med `python tests.py` (bruger en midlertidig database).
 
 ## Struktur
 
@@ -28,18 +31,22 @@ backend/
   app.py            logiklag: forretningsregler og endepunkter for netop dette projekt
   core.py           fælles for alle prototyper: Flask-app, JSON-fejl, CORS og generisk CRUD
   database.py       fælles for alle prototyper: SQLite3-forbindelse og hjælpefunktioner
-  schema.sql        tabeller: customer, hotspot, spot, reservation, event_log
+  schema.sql        tabeller: customer, hotspot, spot, reservation, staff, support_case, support_message, event_log
   seed.sql          fiktive testdata
+  tests.py          automatiske tests af forretningsreglerne (bl.a. ingen dobbeltbooking)
   requirements.txt
 frontend/
-  index.html        skærmbilleder: Hotspots · Mine reservationer (nedtælling) · Administrator (pladser, reservationer, hændelseslog, CRUD)
-  style.css         fælles stylesheet (projektfarver står i index.html)
+  index.html        kundeside: søgning, hotspotliste, aktiv reservation med nedtælling, menu og hjælp
+  app.js            præsentationslag for kundesiden
+  admin.html        administrator: overblik (tal der stemmer), pladser, reservationer, henvendelser, opsætning
+  admin.js          præsentationslag for administratorsiden
+  style.css         fælles stylesheet for alle prototyper
+  app.css           projektets eget udseende – bruges af begge sider, så farver og knapper er ens
   api.js            fælles klient: fetch() + JSON og små DOM-hjælpere
-  app.js            præsentationslag for netop dette projekt
 ```
 
 Klienten og serveren taler kun sammen via HTTP og JSON. Svarene vises i DOM'en, og det seneste
-rå JSON-svar kan ses nederst på siden under "Seneste JSON-svar fra API'et".
+rå JSON-svar kan ses nederst på administratorsiden under "Seneste JSON-svar fra API'et".
 
 Fejl returneres altid som JSON: `{"error": "…", "path": "/api/…"}` med statuskode 400, 401, 403, 404 eller 409.
 
@@ -47,31 +54,25 @@ Fejl returneres altid som JSON: `{"error": "…", "path": "/api/…"}` med statu
 
 | Metode | Endepunkt | Beskrivelse |
 | --- | --- | --- |
-| `POST` | `/api/admin/reservations/<reservation_id>/expire` | Simulerer at ankomstfristen er overskredet (i stedet for at vente 20 minutter). |
-| `GET` | `/api/admin/spots` | Alle pladser med status og eventuel aktiv reservation. |
-| `POST` | `/api/admin/spots/<spot_id>/depart` | En bil kører fra pladsen – først nu bliver pladsen ledig igen. |
-| `POST` | `/api/admin/spots/<spot_id>/occupy` | Simulér at en bil uden reservation parkerer. |
-| `GET` | `/api/customers` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
-| `POST` | `/api/customers` | Opret (CRUD) |
-| `DELETE` | `/api/customers/<item_id>` | Slet (CRUD) |
-| `GET` | `/api/customers/<item_id>` | Hent én (CRUD) |
-| `PUT` | `/api/customers/<item_id>` | Opdatér (CRUD) |
-| `GET` | `/api/events` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
-| `GET` | `/api/events/<item_id>` | Hent én (CRUD) |
 | `GET` | `/api/health` | Systemstatus |
-| `GET` | `/api/hotspots` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
-| `POST` | `/api/hotspots` | Opret (CRUD) |
-| `DELETE` | `/api/hotspots/<item_id>` | Slet (CRUD) |
-| `GET` | `/api/hotspots/<item_id>` | Hent én (CRUD) |
-| `PUT` | `/api/hotspots/<item_id>` | Opdatér (CRUD) |
-| `GET` | `/api/hotspots/overview` | Hotspots med antal ledige, reserverede, optagede og spærrede pladser. |
-| `GET` | `/api/reservations` | Reservationer – filtrér på kunde med ?customer_id=1 |
-| `POST` | `/api/reservations` | Reservér en ledig plads ved et hotspot i 20 minutter. |
-| `GET` | `/api/reservations/<reservation_id>` | Én reservation med hotspot og plads. |
-| `POST` | `/api/reservations/<reservation_id>/arrive` | Registrér ankomst: reservationen benyttes, og pladsen bliver optaget. |
-| `POST` | `/api/reservations/<reservation_id>/cancel` | Annullér en aktiv reservation og frigiv pladsen. |
-| `GET` | `/api/spots` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
-| `POST` | `/api/spots` | Opret (CRUD) |
-| `DELETE` | `/api/spots/<item_id>` | Slet (CRUD) |
-| `GET` | `/api/spots/<item_id>` | Hent én (CRUD) |
-| `PUT` | `/api/spots/<item_id>` | Opdatér (CRUD) |
+| `GET` | `/api/info` | Regler og vilkår, gebyrer, privatlivspolitik, åbningstider, telefon og medarbejdere |
+| `GET` | `/api/hotspots/overview` | Hotspots med ledige, reserverede, optagede og spærrede pladser + `consistent`. Søg med `?q=` |
+| `GET` | `/api/hotspots/<id>/alternatives` | De nærmeste andre hotspots med ledige pladser |
+| `GET` | `/api/reservations` | Reservationer – filtrér på kunde med `?customer_id=1` |
+| `POST` | `/api/reservations` | Reservér en ledig plads i 20 minutter (atomisk – ingen dobbeltbooking) |
+| `GET` | `/api/reservations/<id>` | Én reservation med hotspot, plads og vejvisning |
+| `POST` | `/api/reservations/<id>/arrive` | Bekræft ankomst: pladsen skifter fra reserveret til optaget |
+| `POST` | `/api/reservations/<id>/cancel` | Annullér og frigiv pladsen |
+| `POST` | `/api/reservations/<id>/report` | Meld problem: `{"type": "PLADS_OPTAGET"}` (ny plads eller gratis annullering) eller `{"type": "KAN_IKKE_FINDE"}` (vejvisning + henvendelse) |
+| `POST` | `/api/assistant` | AI-hjælp: `{"text": "…", "customer_id": 1}`. Regelbaseret demo, intet gemmes |
+| `GET` | `/api/support` | Henvendelser med beskeder – filtrér med `?customer_id=1` |
+| `POST` | `/api/support` | Start chat med medarbejder: `{"customer_id", "text", "staff_id" (valgfri – ellers første ledige)}` |
+| `GET` | `/api/support/<id>` | Én henvendelse med beskeder |
+| `POST` | `/api/support/<id>/messages` | Skriv i chatten: `{"sender": "KUNDE" \| "MEDARBEJDER", "text"}` |
+| `POST` | `/api/support/<id>/close` | Luk henvendelsen |
+| `GET` | `/api/admin/spots` | Alle pladser med status og eventuel aktiv reservation |
+| `POST` | `/api/admin/spots/<id>/depart` | Simulér at en bil kører – først nu bliver pladsen ledig |
+| `POST` | `/api/admin/spots/<id>/occupy` | Simulér at en bil uden reservation parkerer |
+| `POST` | `/api/admin/reservations/<id>/expire` | Simulér at ankomstfristen er overskredet |
+| `GET` `POST` `PUT` `DELETE` | `/api/customers`, `/api/hotspots`, `/api/spots`, `/api/staff` | CRUD (`/<id>` for én) |
+| `GET` | `/api/events` | Hændelseslog |

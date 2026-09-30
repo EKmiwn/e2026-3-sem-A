@@ -9,8 +9,8 @@ Hver gruppemappe indeholder en prototype bygget ud fra gruppens kravspecifikatio
 |---|---|---|---|---|---|
 | 1 | StockUP | Lager af kaffesække og kaffeposer (ristning, salg, bevægelseslog) | 5101 | :8001 | [DOCS](1-StockUP/DOCS.md) · [API](1-StockUP/backend/README.md) |
 | 2 | GreenMobility | Reservation af hotspotparkering med 20 min. frist | 5102 | :8002 | [DOCS](2-GreenMobility-UrbanMotion/DOCS.md) · [API](2-GreenMobility-UrbanMotion/backend/README.md) |
-| 3 | Amitylux | Oplevelsesvælger, anbefaling og forespørgsels-brief (engelsk UI) | 5103 | :8003 | [DOCS](3-Amitylux/DOCS.md) · [API](3-Amitylux/backend/README.md) |
-| 4 | AGC | QC-informationshub: connectors, relevans, kontrol, godkendelse og deling | 5104 | :8004 | [DOCS](4-AGC/DOCS.md) · [API](4-AGC/backend/README.md) |
+| 3 | Amitylux | Experience Compass: højst tre forklarede oplevelsesforslag og struktureret overlevering (engelsk UI) | 5103 | :8003 | [DOCS](3-Amitylux/DOCS.md) · [API](3-Amitylux/backend/README.md) |
+| 4 | AGC | QC-informationshub med godkendelse og deling samt Leverancer & Prioritering | 5104 | :8004 | [DOCS](4-AGC/DOCS.md) · [API](4-AGC/backend/README.md) |
 | 5 | Solum | Fejlfindingsguides, vidensartikler og kompetenceoverblik | 5105 | :8005 | [DOCS](5-Solum/DOCS.md) · [API](5-Solum/backend/README.md) |
 | 6 | Learnify | Elevevaluering af trivsel og læringsmiljø med resultater over tid | 5106 | :8006 | [DOCS](6-Learnify/DOCS.md) · [API](6-Learnify/backend/README.md) |
 | 7 | Boliga | Insight Hub med samlet boligdata og AI-sparringspartner | 5107 | :8007 | [DOCS](7-Boliga/DOCS.md) · [API](7-Boliga/backend/README.md) |
@@ -44,6 +44,7 @@ Alle prototyper er bygget ens:
 ```
 
 Sunny AI har desuden `backend/planner.py` (planmotoren uden Flask og SQLite) og `backend/tests.py` (accepttests), fordi kravspecifikationen kræver, at beregningslogikken kan testes alene.
+Amitylux har tilsvarende `backend/compass.py` (matchmotoren) og `backend/tests.py` (test af K1–K12).
 
 Flask serverer frontenden på `/` og API'et på `/api/...` fra samme adresse.
 
