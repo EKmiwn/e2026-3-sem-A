@@ -1,8 +1,8 @@
 # Learnify – Elevevaluering (Læringsrum 2.0) – prototype
 
-Elever logger ind og besvarer ugentlige spørgsmål om trivsel, læring, møbler og miljø. Lærere ser samlede, anonyme resultater med procenttal og udvikling over tid. Resultater vises først, når mindst 3 elever har svaret.
+Version 2: login som elev, lærer eller virksomhed med e-mail og adgangskode. Eleven tager hver måned en test om trivsel, læring, møbler, miljø og arbejdsstil med mulighed for at uddybe og ser sin personlige elevprofil. Læreren ser hver elev i sin klasse i procent pr. måned og elevprofilen. Virksomheden filtrerer anonyme besvarelser. Den indloggede bruger sendes i headeren `X-User-Id` som `rolle:id`, fx `elev:6`.
 
-Kravgrundlag: [`../Kravspecifikation.md`](../Kravspecifikation.md)
+Kravgrundlag: [`../Kravspecifikation.md`](../Kravspecifikation.md) og [`../Ændriger til vores produkt (1).docx`](<../Ændriger til vores produkt (1).docx>)
 
 ## Kør prototypen
 
@@ -32,7 +32,7 @@ backend/
   seed.sql          fiktive testdata
   requirements.txt
 frontend/
-  index.html        skærmbilleder: Login · Besvar · Min udvikling · Resultater · Udvikling over tid · Skoleoverblik · Spørgsmål og elever
+  index.html        skærmbilleder: Login · Forside · Månedens test · Elever · Klassens resultater · Udvikling over tid · Besvarelser · Skoleoverblik · Spørgsmål og elever
   style.css         fælles stylesheet (projektfarver står i index.html)
   api.js            fælles klient: fetch() + JSON og små DOM-hjælpere
   app.js            præsentationslag for netop dette projekt
@@ -52,17 +52,19 @@ Fejl returneres altid som JSON: `{"error": "…", "path": "/api/…"}` med statu
 | `DELETE` | `/api/classes/<item_id>` | Slet (CRUD) |
 | `GET` | `/api/classes/<item_id>` | Hent én (CRUD) |
 | `PUT` | `/api/classes/<item_id>` | Opdatér (CRUD) |
+| `GET` | `/api/company/answers` | Virksomhedens adgang til besvarelser til idéudvikling. Filtrér med ?class_id=&grade=&period=&category= &question_id=&max_value=&with_text=1. Eleverne er anonymiseret (fx "Elev 7.B-3"). |
 | `GET` | `/api/health` | Systemstatus |
-| `POST` | `/api/login` | Log ind med brugernavn – returnerer rolle (elev, lærer, administrator). |
-| `GET` | `/api/overview` | Virksomheds-/skolevisning (Læringsrum 2.0): alle klasser med seneste resultat og udvikling. |
+| `POST` | `/api/login` | Log ind som elev, lærer eller virksomhed med e-mail og adgangskode. |
+| `GET` | `/api/me/profile` | Elevens forside: egen profil og udvikling. |
+| `GET` | `/api/overview` | Virksomhedens overblik (Læringsrum 2.0): alle klasser med seneste resultat sammenlignet med første måling. |
 | `GET` | `/api/questions` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
 | `POST` | `/api/questions` | Opret (CRUD) |
 | `DELETE` | `/api/questions/<item_id>` | Slet (CRUD) |
 | `GET` | `/api/questions/<item_id>` | Hent én (CRUD) |
 | `PUT` | `/api/questions/<item_id>` | Opdatér (CRUD) |
-| `POST` | `/api/responses` | Elevens ugentlige besvarelse. Returnerer personlig feedback. |
-| `GET` | `/api/results` | Samlet resultat for en klasse (eller hele skolen) i en periode: gennemsnit og procenttal. |
-| `GET` | `/api/results/trend` | Sammenlign svar over tid: gennemsnit og andel positive svar pr. kategori pr. uge. |
+| `POST` | `/api/responses` | Elevens månedlige besvarelse med uddybende tekst pr. svar, ønsker og holdning til klasselokalet. |
+| `GET` | `/api/results` | Klassens samlede resultat i en måned: gennemsnit og procenttal (vises ved mindst 3 besvarelser). |
+| `GET` | `/api/results/trend` | Sammenlign svar over tid: gennemsnit og andel positive svar pr. kategori pr. måned. |
 | `GET` | `/api/schools` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
 | `POST` | `/api/schools` | Opret (CRUD) |
 | `DELETE` | `/api/schools/<item_id>` | Slet (CRUD) |
@@ -73,10 +75,6 @@ Fejl returneres altid som JSON: `{"error": "…", "path": "/api/…"}` med statu
 | `DELETE` | `/api/students/<item_id>` | Slet (CRUD) |
 | `GET` | `/api/students/<item_id>` | Hent én (CRUD) |
 | `PUT` | `/api/students/<item_id>` | Opdatér (CRUD) |
-| `GET` | `/api/students/<student_id>/history` | Elevens egen udvikling over tid pr. kategori. |
-| `GET` | `/api/survey` | Aktive spørgsmål og om eleven allerede har svaret i denne uge. |
-| `GET` | `/api/teachers` | Hent liste (filtrér med ?felt=værdi) (CRUD) |
-| `POST` | `/api/teachers` | Opret (CRUD) |
-| `DELETE` | `/api/teachers/<item_id>` | Slet (CRUD) |
-| `GET` | `/api/teachers/<item_id>` | Hent én (CRUD) |
-| `PUT` | `/api/teachers/<item_id>` | Opdatér (CRUD) |
+| `GET` | `/api/students/<student_id>/profile` | Lærerens visning af én elev: navn, klasse, profil og besvarelser i procent pr. måned. |
+| `GET` | `/api/survey` | Månedens aktive spørgsmål, og om eleven allerede har svaret. |
+| `GET` | `/api/teacher/students` | Lærerens overblik: hver elev i klassen med andel positive svar pr. måned og seneste profil. |

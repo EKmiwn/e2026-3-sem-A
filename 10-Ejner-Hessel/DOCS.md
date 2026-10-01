@@ -1,24 +1,52 @@
 # Min Hessel – kundeportal – dokumentation af prototypen
 
 En samlet digital kundeportal for Ejner Hessels kunder. Kunden får **ét overblik over sine biler på tværs af mærker**
-(Mercedes-Benz, Renault, Dacia og Ford) med biloplysninger, servicehistorik, reparationsstatus, værkstedsbookinger, aftaler og dokumenter.
+(Mercedes-Benz, Renault, Dacia og Ford) med biloplysninger, servicehistorik, reparationsstatus, værkstedsbookinger, aftaler, dokumenter samt forbrug og klima.
 
-Kravgrundlag: [`kravspecifikation.md`](kravspecifikation.md)
+Kravgrundlag: [`kravspecifikation.md`](kravspecifikation.md) og ændringerne i [`kravspecifikation-2.md`](kravspecifikation-2.md) (version 2).
 
 Kravspecifikationen nævner React og Node/Express. Prototypen følger holdets fælles Flask + HTML/CSS/JavaScript-struktur,
 men opfylder de samme krav: webapplikation, tre-lags arkitektur, SQLite, HTTP og JSON, CRUD og kun testdata.
 
 ## Hvad kan prototypen
 
+**Kundevisning** (vælg en testkunde i toppen):
+
 | Skærm | Funktion |
 |---|---|
-| **Mine biler** | Kort pr. bil med mærke, model, nummerplade, km, ejerform, næste booking, næste service og reparation med statuslinje. Notifikationer øverst |
-| **Biloplysninger** | Alle data om bilen, servicehistorik og dokumenter for bilen |
-| **Værkstedsbooking** | Opret booking (bil, værksted, type, dato og ledig tid), se, ret, aflys og slet |
-| **Aftaler og dokumenter** | Alle kundens aftaler, fakturaer og garantier, filtreret på kategori |
-| **Værksted (medarbejder)** | Opdatér reparationsstatus, opret reparation og registrér service. Ændringer ses straks hos kunden |
+| **Mine biler** | Bilkort med billede af bilen, mærke, model, nummerplade, årgang, drivmiddel, gearkasse, km, ejerform, næste booking, service og syn samt reparationsstatus. Notifikationer øverst |
+| **Biloplysninger** | Alle data om bilen inkl. gearkasse, næste syn, garanti, leasing (selskab, udløb, måneder tilbage, km pr. år og ydelse) og for elbiler batterikapacitet og rækkevidde. Servicehistorik og dokumenter for bilen |
+| **Værkstedsbooking** | Booking i fem tydelige trin: 1. bil → 2. værksted (kun dem, der servicerer mærket) → 3. type og dato → 4. ledigt tidspunkt → 5. oversigt og *Bekræft booking*. Se, ret og aflys bookinger |
+| **Reparationsstatus** | Status med statuslinje, forventet færdigtidspunkt, værksted og alle beskeder fra værkstedet samlet i en tidslinje |
+| **Aftaler og dokumenter** | Søg i titel og beskrivelse, filtrér efter bil og kategori, og brug knapperne *Åbn* og *Download* |
+| **Forbrug og klima** | Forbrug pr. måned (liter eller kWh pr. 100 km) i et diagram, udgift og CO₂ pr. år, et mål for forbruget med beregnet besparelse i kroner og CO₂, registrering af en ny måned og gode råd |
 
-Testkunden vælges i toppen.
+**Medarbejdervisning** (vælg *Medarbejder (værksted)* i toppen) – kunden ser ikke denne fane:
+
+| Skærm | Funktion |
+|---|---|
+| **Værksted** | Øverst *Registrér service*, nedenunder *Opdatér reparationsstatus* (status, forventet klar og ny besked til kunden pr. reparation) og *Opret reparation* |
+
+## Ændringer i version 2
+
+| Ønske (kravspecifikation-2.md) | Implementering |
+|---|---|
+| Mere gennemført Hessel-design med logo | `frontend/logo.svg` i headeren og som favicon. Ensartet mørkeblå farve, skrift og knapper. Logoet er en enkel pladsholder, som kan udskiftes med Ejner Hessels officielle logofil |
+| Billeder af bilerne | `carImage()` tegner en illustration af bilens karrosseri (`car.body_type`) i bilens farve (`car.color`). Har bilen `image_url`, vises det rigtige billede i stedet |
+| 10 ekstra biler i testdata | 14 biler fordelt på 5 testkunder og alle 4 mærker |
+| Tilpasning til mobil | Kort og formularfelter lægges under hinanden under 700 px. Navigationen kan scrolles, og knapperne er mindst 44 px høje |
+| Medarbejdersiden: *Registrér service* øverst | Rækkefølgen i fanen *Værksted* er byttet om |
+| Separat fane *Reparationsstatus* | `GET /api/customers/<id>/repairs`. Hver ændring af status eller besked logges af SQLite-triggere i tabellen `repair_update` |
+| Flere biloplysninger | Nye felter på `car`: `gearbox`, `next_inspection_date`, `warranty_until`, `battery_kwh`, `range_km` og `leasing_*`. Afledt: `warranty_active`, `inspection_due_soon` og `leasing_months_left` |
+| Mere læsbare tabeller og datoer som 12.10.2026 | Dato, nummerplade og bilnavn brydes ikke (`nowrap`), og `day()` viser alle datoer som DD.MM.ÅÅÅÅ. Valgmuligheder står i fuld bredde |
+| Tydeligere bookingforløb med oversigt | `renderBookingStep()` med trinlinje og en oversigt før bekræftelse |
+| Lettere adgang til dokumenter | `GET /api/documents/<id>/file` (åbn) og `?download=1` (download). Søgefelt og filter på bil |
+| Adskilt kunde- og medarbejdervisning | To navigationer. Kunden ser kun sine egne faner |
+| Fjern "Seneste JSON-svar fra API'et" | Feltet er fjernet fra `index.html` (`api.js` springer det over, når feltet ikke findes) |
+| Ny fane *Forbrug og klima* | Tabellerne `consumption_log` og `consumption_goal`. `GET/POST /api/cars/<id>/consumption` og `PUT /api/cars/<id>/goal` |
+
+**Beregning af besparelse:** forbrug nu = gennemsnit af de seneste 3 måneder. Km pr. år = gennemsnit pr. måned × 12.
+Sparede enheder pr. år = (forbrug nu − mål) / 100 × km pr. år. Kroner og CO₂ = enheder × pris og CO₂ pr. enhed (`FUEL` i `app.py`: benzin 13,50 kr. og 2,37 kg CO₂ pr. liter, diesel 12,50 kr. og 2,64 kg, strøm 2,50 kr. og 0,10 kg pr. kWh – antagelser).
 
 ## Fra krav til kode
 
@@ -29,37 +57,41 @@ Testkunden vælges i toppen.
 | Servicehistorik | Tabellen `service_history` |
 | Kommende værkstedsbookinger | `next_booking` pr. bil + bookinglisten |
 | Oprette, redigere og slette en booking | CRUD `/api/bookings` med `validate_booking()` |
-| Status på igangværende reparation | `active_repair` med `step`/`steps` → statuslinjen. `REPAIR_STEPS` |
-| Aftaler og dokumenter | Tabellen `document` |
+| Status på igangværende reparation | `active_repair` og fanen *Reparationsstatus*. `REPAIR_STEPS` |
+| Aftaler og dokumenter | Tabellen `document` og `GET /api/documents/<id>/file` |
 | JSON mellem frontend og backend, SQLite, CRUD | Fælles `core.py` og `database.py` |
 | Tydelig besked ved gennemført handling og forståelig fejlbesked | Grøn/rød `toast()` med serverens fejltekst |
-| Data opdateres efter en ændring | Frontenden genindlæser overblikket efter hvert kald |
+| Data opdateres efter en ændring | Frontenden genindlæser efter hvert kald |
 | Kun testdata | `seed.sql` indeholder kun opdigtede personer og biler |
-| Fremtidsidé: notifikationer om service og reparation | `notifications` i overblikket (service inden for 30 dage uden booking og beskeder fra værkstedet) |
+| Fremtidsidé: notifikationer | `notifications` i overblikket: service inden for 30 dage uden booking, syn inden for 60 dage og beskeder fra værkstedet |
 
 **Bookingregler (`validate_booking()`)**
 
 - Datoen skal være fra i morgen og frem og på en hverdag.
 - Tidspunktet skal være et af værkstedets faste tider (`SLOTS`). `GET /api/available-times` viser ledige tider.
-- Værkstedet skal servicere bilens mærke (`workshop.brands`).
+- Værkstedet skal servicere bilens mærke (`workshop.brands`). Bookingforløbet viser kun de værksteder, der gør.
 - Samme værksted, dato og tid kan ikke bookes to gange (409).
 - Aflyste bookinger valideres ikke igen og frigiver tiden.
 
 **Reparationsforløb:** `MODTAGET → DIAGNOSE → VENTER_PÅ_DELE → I_GANG → KLAR_TIL_AFHENTNING → AFHENTET`.
-En SQLite-trigger (`repair_touch`) opdaterer `updated_at`, hver gang værkstedet ændrer status.
+SQLite-triggere opdaterer `updated_at` (`repair_touch`) og logger hver ændring af status og besked i `repair_update` (`repair_log_insert` og `repair_log_update`).
 
 ## Datamodel
 
 ```mermaid
 erDiagram
     CUSTOMER ||--o{ CAR : "customer_id"
-    WORKSHOP ||--o{ SERVICE_HISTORY : "workshop_id"
     CAR ||--o{ SERVICE_HISTORY : "car_id"
-    WORKSHOP ||--o{ BOOKING : "workshop_id"
+    WORKSHOP ||--o{ SERVICE_HISTORY : "workshop_id"
     CAR ||--o{ BOOKING : "car_id"
+    WORKSHOP ||--o{ BOOKING : "workshop_id"
     CAR ||--o{ REPAIR : "car_id"
-    CAR ||--o{ DOCUMENT : "car_id"
+    WORKSHOP ||--o{ REPAIR : "workshop_id"
+    REPAIR ||--o{ REPAIR_UPDATE : "repair_id"
     CUSTOMER ||--o{ DOCUMENT : "customer_id"
+    CAR ||--o{ DOCUMENT : "car_id"
+    CAR ||--o{ CONSUMPTION_LOG : "car_id"
+    CAR ||--o{ CONSUMPTION_GOAL : "car_id"
     CUSTOMER {
         INTEGER id PK
         TEXT name
@@ -82,9 +114,21 @@ erDiagram
         TEXT vin
         INTEGER year
         TEXT fuel
+        TEXT gearbox
+        TEXT body_type
+        TEXT color
+        TEXT image_url
         INTEGER mileage_km
         TEXT ownership
         TEXT next_service_date
+        TEXT next_inspection_date
+        TEXT warranty_until
+        REAL battery_kwh
+        INTEGER range_km
+        TEXT leasing_company
+        TEXT leasing_end
+        INTEGER leasing_km_per_year
+        REAL leasing_monthly
     }
     SERVICE_HISTORY {
         INTEGER id PK
@@ -110,11 +154,19 @@ erDiagram
     REPAIR {
         INTEGER id PK
         INTEGER car_id FK
+        INTEGER workshop_id FK
         TEXT description
         TEXT status
         TEXT estimated_ready
         TEXT updated_at
         TEXT message
+    }
+    REPAIR_UPDATE {
+        INTEGER id PK
+        INTEGER repair_id FK
+        TEXT status
+        TEXT message
+        TEXT created_at
     }
     DOCUMENT {
         INTEGER id PK
@@ -125,31 +177,42 @@ erDiagram
         TEXT date
         TEXT description
     }
+    CONSUMPTION_LOG {
+        INTEGER id PK
+        INTEGER car_id FK
+        TEXT month
+        INTEGER km
+        REAL amount
+    }
+    CONSUMPTION_GOAL {
+        INTEGER id PK
+        INTEGER car_id FK
+        REAL target_per_100
+        TEXT created_at
+    }
 ```
 
 ## Eksempel på dataudveksling
 
-Lars booker årligt eftersyn til sin Mercedes-Benz EQA hos Ejner Hessel Glostrup. Backenden tjekker dato, tidspunkt, mærke og ledig tid:
+Lars' Mercedes-Benz EQA bruger 21,4 kWh/100 km. Med et mål på 17 kWh/100 km viser prototypen besparelsen:
 
 ```bash
-curl -X POST http://localhost:5110/api/bookings \
-  -H 'Content-Type: application/json' \
-  -d '{"car_id": 1, "workshop_id": 1, "date": "2026-10-21", "time": "10:00", "service_type": "Årligt eftersyn"}'
+curl http://localhost:5110/api/cars/1/consumption
 ```
 
-Svar `201`:
+Svar `200` (forkortet):
 
 ```json
 {
-  "id": 4,
-  "car_id": 1,
-  "workshop_id": 1,
-  "date": "2026-10-21",
-  "time": "10:00",
-  "service_type": "Årligt eftersyn",
-  "notes": null,
-  "status": "BEKRÆFTET",
-  "created_at": "2026-09-29 15:50:35"
+  "car": { "id": 1, "brand": "Mercedes-Benz", "model": "EQA 250+", "registration": "EH 12 345", "fuel": "El" },
+  "unit_per_100": "kWh/100 km",
+  "current_per_100": 21.4,
+  "yearly_km": 11183,
+  "yearly_cost": 5983,
+  "yearly_co2_kg": 239,
+  "goal": { "car_id": 1, "target_per_100": 17.0 },
+  "savings": { "target_per_100": 17.0, "units_per_year": 492, "kr_per_year": 1230, "co2_kg_per_year": 49, "reached": false },
+  "logs": [ { "month": "2026-09", "km": 845, "amount": 180.4, "per_100": 21.3, "cost": 451, "co2_kg": 18.0 } ]
 }
 ```
 
@@ -211,22 +274,23 @@ flowchart LR
 | `backend/schema.sql` · `seed.sql` | Data | Tabeller og fiktive testdata |
 
 Alle fejl returneres som JSON (`{"error": "…", "path": "/api/…"}`) med statuskode 400, 401, 403, 404 eller 409 og vises som en rød besked i frontenden.
-Nederst på siden kan man åbne **"Seneste JSON-svar fra API'et"** og se den rå dataudveksling.
+Feltet "Seneste JSON-svar fra API'et" er fjernet fra brugerfladen i version 2. Dataudvekslingen kan ses i browserens udviklerværktøjer (Network).
 Den fulde endepunktsliste står i [`backend/README.md`](backend/README.md).
 
 ## Design og responsivitet
 
-- Samme stylesheet i alle prototyper. Kun farverne (`--brand`, `--brand-dark`, `--brand-soft`) sættes i `index.html`.
-- Layoutet virker fra mobil (375 px) til desktop uden vandret scroll. Kort lægger sig under hinanden på små skærme, og brede tabeller scroller inde i deres kort.
-- Formularfelter kan ikke blive bredere end deres kort. En `<select>` med lange valgmuligheder skubber altså ikke formularen ud over kanten.
+- Samme fælles stylesheet som de andre prototyper. Hessel-designet (logo, farver, skrift, knapper, bilkort, bookingtrin og forbrugsdiagram) ligger som projektets egen CSS i `index.html`.
+- Under 700 px lægges kort, formularfelter og bookingvalg under hinanden, og knapper og faner får større trykflader.
+- Datoer, nummerplader og bilnavne brydes ikke over flere linjer. Brede tabeller scroller inde i deres kort.
 - Beskeder vises kort i toppen (grøn = gennemført, rød = fejl fra serveren).
-
 
 ## Testdata
 
-2 kunder, 3 værksteder med forskellige mærker, 4 biler (Mercedes-Benz, Dacia, Ford, Renault – købt og leaset),
-6 serviceposter, 3 bookinger, 1 igangværende reparation (venter på dele) og 7 dokumenter.
+5 kunder, 3 værksteder med forskellige mærker og 14 biler (Mercedes-Benz, Renault, Dacia og Ford – købt og leaset, el, benzin, diesel og hybrid, fra lille bybil til varevogn).
+11 serviceposter, 5 bookinger, 3 reparationer med forløb og beskeder (venter på dele, i gang og klar til afhentning), 17 dokumenter og 9 måneders forbrug for hver bil. Lars har mål for to af sine biler.
 
 ## Afgrænsning
 
-Ingen login, betaling, integration til Ejner Hessels systemer eller bilmærkernes apps og ingen mobilapp (jf. afsnit 4).
+Ingen login (kunde eller medarbejder vælges i toppen), betaling eller integration til Ejner Hessels systemer og bilmærkernes apps.
+Bilbillederne er illustrationer, indtil der tilføjes rigtige billeder via `image_url`. Dokumenterne genereres som HTML ud fra testdata.
+Priser og CO₂-faktorer for forbrug er antagelser.

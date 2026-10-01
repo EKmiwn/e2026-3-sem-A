@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 48" role="img" aria-label="Ejner Hessel">
+  <!-- Enkel ordmærke-pladsholder. Udskift med Ejner Hessels officielle logofil, når den er tilgængelig -->
+  <rect x="0" y="4" width="40" height="40" rx="6" fill="#ffffff"/>
+  <path d="M10 14h20v4H15v4h13v4H15v4h15v4H10z" fill="#003b5c"/>
+  <text x="52" y="22" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="4" fill="#ffffff">EJNER</text>
+  <text x="52" y="41" font-family="Helvetica, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="4" fill="#ffffff">HESSEL</text>
+</svg>

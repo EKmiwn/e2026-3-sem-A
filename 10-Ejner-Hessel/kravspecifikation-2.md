@@ -1,0 +1,14 @@
+Efter at have gennemgået prototypen har jeg følgende observationer og forslag til forbedringer:
+Et mere gennemført Hessel-design:** Prototypen fremstår meget enkel. Jeg ønsker at tilføje Ejner Hessels logo og gøre farver, skrifttyper og knapper mere ensartede, så hjemmesiden får en tydeligere visuel identitet.
+Billeder af bilerne:** Under ”Mine biler” vises bilerne kun med tekst. Jeg ønsker et billede af den relevante bilmodel på hvert bilkort, så overblikket bliver mere visuelt og bilerne lettere at genkende.
+Flere biler i testdata:** Jeg ønsker at tilføje 10 ekstra biler fordelt på forskellige testkunder og bilmærker, så vi kan undersøge, hvordan overblikket fungerer med flere biler.
+Tilpasning til mobiltelefon:** Alle sider skal tilpasses mindre skærme. Bilkort og formularer skal placeres under hinanden, og navigationen skal tilpasses, så tekst og knapper er lette at bruge på mobilen.
+Bedre opbygning af medarbejdersiden: ”Registrér service” skal placeres øverst og ”Opdatér reparationsstatus” nedenunder, så siden får en tydeligere rækkefølge.
+En separat fane til reparationsstatus:** Jeg ønsker en kundefane kaldet ”Reparationsstatus”, hvor kunden kan se status, forventet færdigtidspunkt og beskeder fra værkstedet samlet.
+Flere relevante biloplysninger:** De eksisterende oplysninger skal suppleres med eksempelvis næste syn, gearkasse, garantiperiode og relevante oplysninger om leasing. For elbiler kan batterikapacitet og rækkevidde også vises.
+Mere læsbare tabeller og felter:** Flere datoer og bilnavne bliver delt over mange linjer, og nogle valgmuligheder bliver afkortet. Kolonnebredder og felter skal tilpasses, så oplysningerne er lettere at læse. Datoer skal vises ensartet som eksempelvis ”12.10.2026”.
+Et tydeligere bookingforløb:** Valg af bil, værksted, dato og ledigt tidspunkt skal vises i en tydelig rækkefølge. Kunden skal kunne se en samlet oversigt over sine valg, inden bookingen bekræftes.
+Lettere adgang til dokumenter:** Under ”Aftaler og dokumenter” ønsker jeg tydelige knapper til at åbne og downloade dokumenter samt mulighed for at søge og filtrere efter bil ud over den eksisterende kategorifiltrering.
+Adskilt kunde- og medarbejdervisning:** Medarbejderfanen er synlig i kundens navigation. Jeg ønsker separate visninger, så kunden kun præsenteres for sine egne funktioner.
+Fjernelse af tekniske oplysninger:** Feltet ”Seneste JSON-svar fra API’et” skal fjernes fra den almindelige brugerflade, så siden bliver mere overskuelig og relevant for kunden.
+Ny fane: Forbrug og klima: Tilføj en side, hvor kunden kan følge bilens brændstof- eller strømforbrug over tid og sætte et mål for at reducere det. Siden skal vise den beregnede besparelse i både penge og CO₂ ved et lavere forbrug. Formålet er at gøre det tydeligt, hvordan kundens ændringer kan gavne både økonomien og klimaet.

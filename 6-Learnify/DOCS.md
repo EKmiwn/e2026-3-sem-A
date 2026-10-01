@@ -1,56 +1,72 @@
 # Learnify – elevevaluering (Læringsrum 2.0) – dokumentation af prototypen
 
-En platform, hvor **elever** nemt og trygt kan fortælle om trivsel, læring, møbler og miljø i klasselokalet,
-og hvor **lærere** og **Læringsrum 2.0** får et samlet overblik med procenttal og udvikling over tid.
+En platform, hvor **elever** hver måned fortæller om trivsel, læring, møbler og miljø i klasselokalet og om deres **arbejdsstil** – med mulighed for at **uddybe** med egne ord.
+**Lærere** ser hver enkelt elevs besvarelser i procent pr. måned og en **personlig elevprofil**, og **virksomheden** (Læringsrum 2.0) kan **filtrere** de anonyme besvarelser til idéudvikling.
 
-Kravgrundlag: [`Kravspecifikation.md`](Kravspecifikation.md)
+Kravgrundlag: [`Kravspecifikation.md`](Kravspecifikation.md) og ændringerne i [`Ændriger til vores produkt (1).docx`](<Ændriger til vores produkt (1).docx>) (version 2 af prototypen).
+
+![Kontekstdiagram: Elev → Læringsrum 2.0 → Lærer, Virksomhed og Administrationen](figur-04.jpg)
+
+*Kontekstdiagram fra ændringsdokumentet: eleven sender trivselsmålinger og refleksioner, læreren får elevprofil, feedback og faglig udvikling, og virksomheden får adgang til en opsummering af trivselsmålingerne.*
 
 ## Hvad kan prototypen
 
 | Rolle | Skærm | Funktion |
 |---|---|---|
-| Alle | **Log ind** | Brugernavn. Faneblade vises efter rolle |
-| Elev | **Besvar** | Ugens spørgsmål med smiley-skala 1–5, valgfri kommentar og personlig feedback bagefter |
-| Elev | **Min udvikling** | Egne gennemsnit pr. kategori uge for uge |
-| Lærer | **Resultater** | Pr. klasse og uge: antal svar, % positive, gennemsnit pr. kategori og spørgsmål, fordeling og anonyme kommentarer |
-| Lærer | **Udvikling over tid** | Gennemsnit og % positive pr. kategori pr. uge samt ændring siden første måling |
-| Administrator | **Skoleoverblik** | Alle klasser: seneste uge sammenlignet med første måling |
-| Administrator | **Spørgsmål og elever** | CRUD for spørgsmål (inkl. aktiv/inaktiv) og elever |
+| Alle | **Log ind** | Ny loginside i stil med eksemplet: lilla gradient, logo og et hvidt kort. Vælg **Elev**, **Lærer** eller **Virksomhed**, og log ind med e-mail og adgangskode |
+| Elev | **Forside** | Personlig elevprofil (navn, klasse, alder, læringsstil, arbejdstempo, seneste trivselsscore x/10, ønsker og holdning til klasselokalet), diagram over egne svar pr. måned og en knap til månedens test |
+| Elev | **Månedens test** | Spørgsmål om trivsel, læring, møbler, miljø og arbejdsstil med smiley-skala 1–5, tekstfeltet *Uddyb* under hvert spørgsmål og felter til ønsker, klasselokale og andet |
+| Lærer | **Elever** | Hver elev i klassen med navn, klasse, trivselsscore, læringsstil, tempo og andel positive svar pr. måned. Klik på en elev for at se elevprofilen med diagram og uddybninger |
+| Lærer | **Klassens resultater** / **Udvikling over tid** | Klassens samlede tal pr. måned (vises ved mindst 3 svar) og ændring siden første måling |
+| Virksomhed | **Besvarelser** | Filtrér på klasse, klassetrin, måned, kategori, negative svar og kun svar med uddybning. Viser nøgletal, anonyme svar ("Elev 7.B-3") og elevernes ønsker og holdning til klasselokalet |
+| Virksomhed | **Skoleoverblik** / **Spørgsmål og elever** | Alle klasser sammenlignet med første måling og CRUD for spørgsmål (inkl. arbejdsstil) og elever |
+
+## Ændringer i version 2
+
+| Ændringsønske | Implementering |
+|---|---|
+| Elev: tekstfelt, så man kan uddybe | `answer.note` (feltet *Uddyb* under hvert spørgsmål) samt `response.comment`, `wishes` og `classroom` |
+| Visuelt flottere og en flottere loginside | Gradient, kort med skygge og en loginside som eksemplet. Kun projektets egen CSS i `index.html` – det fælles `style.css` er uændret |
+| Vælg mellem elev og lærer ved login | `POST /api/login` med `role`, `email` og `password` (adgangskoder gemmes som hash). Elev → forsiden, lærer → elevernes besvarelser. Virksomheden har sin egen rolle |
+| Læreren ser hver elevs besvarelser i procent pr. måned med navn og klasse | `GET /api/teacher/students` (kun lærerens egen klasse – `teacher.class_id`) og `GET /api/students/<id>/profile` |
+| Diagram | Søjlediagram pr. måned og kategori på elevprofilen (forstået som "diagram over elevens svar" – "Vpm diagram" er ikke uddybet i dokumentet) |
+| Spørgsmål om arbejdsstil | Kategorien `arbejdsstil` med `style` = visuel, auditiv, praktisk eller tempo. Bruges til profilen, ikke til procenttal |
+| Virksomheden ser besvarelser og kan filtrere | `GET /api/company/answers` med filtre. Eleverne er anonymiseret |
+| Personlig elevprofil (grundlæggende information) | `student_profile()`: læringsstil = stilarter med svar 4–5, arbejdstempo ud fra tempo-spørgsmålet, trivselsscore = trivselsgennemsnit 1–5 omregnet til 1–10, seneste ønsker og holdning til klasselokalet |
+| Testen udføres hver måned | `response.period` er nu en måned (`2026-10`) i stedet for en uge. Én besvarelse pr. elev pr. måned |
+
+**Vigtig ændring i privatliv:** I version 1 så læreren kun anonyme klassetal. Nu ser læreren den enkelte elevs svar, som ændringsdokumentet ønsker. Eleven får det at vide i testen ("din lærer kan se dine svar").
+Læreren ser kun sin egen klasse. Virksomheden ser aldrig navne, og klassens samlede tal vises stadig først ved mindst 3 besvarelser.
 
 ## Fra krav til kode
 
 | Krav (afsnit 4–5) | Implementering |
 |---|---|
-| Eleven skal kunne logge ind | `POST /api/login` finder elev eller lærer ud fra brugernavn |
-| Besvare spørgsmål om trivsel og møbler | `GET /api/survey` + `POST /api/responses` (alle aktive spørgsmål skal besvares, værdi 1–5) |
-| Systemet skal gemme besvarelser | `response` + `answer`. Én besvarelse pr. elev pr. ISO-uge (`UNIQUE(student_id, period)`) |
-| Læreren ser resultaterne samlet | `GET /api/results?class_id=&period=` |
+| Eleven skal kunne logge ind | `POST /api/login` (rolle + e-mail + adgangskode). Derefter sendes `X-User-Id: rolle:id` |
+| Besvare spørgsmål om trivsel og møbler | `GET /api/survey` og `POST /api/responses` (alle aktive spørgsmål skal besvares med 1–5) |
+| Systemet skal gemme besvarelser | `response` + `answer`. Én besvarelse pr. elev pr. måned (`UNIQUE(student_id, period)`) |
+| Læreren ser resultaterne samlet | `GET /api/results` og `GET /api/teacher/students` |
 | Statistiske procenttal | `summarise()`: gennemsnit, % positive (4–5), % negative (1–2) og fordeling |
-| Sammenligne svar over tid | `GET /api/results/trend` og `GET /api/students/<id>/history` |
-| Elevens data behandles sikkert | Læreren ser kun samlede tal og anonyme kommentarer. Resultater vises først ved mindst **3** besvarelser (`MIN_RESPONDENTS`) |
-| Personlig feedback (user journey) | `FEEDBACK` giver et forslag til den kategori, eleven scorede lavest |
-| Virksomheden har adgang til svarene | `GET /api/overview` til administrator (Læringsrum 2.0) |
-| Computer og tablet | Fælles responsivt design |
-
-**Dataflow (BPMN, bilag 1–3):** Elev besvarer → `response/answer` gemmes → `summarise()` behandler og kategoriserer → lærer/virksomhed ser resultater og tendenser.
+| Sammenligne svar over tid | `GET /api/results/trend` og månederne i elevprofilen |
+| Styrer brugerrettigheder | `current_user(*roles)` og `check_student_access()` (401/403). `password_hash` fjernes fra alle svar (`hide_password_hashes()`) |
+| Virksomheden har adgang til elevernes svar | `GET /api/company/answers` (anonymt, filtrerbart) og `GET /api/overview` |
 
 ## Datamodel
 
-Følger ER-skitsen *Elev → Besvarelse → Spørgsmål → Resultat* (resultater beregnes ved opslag):
-
 ```mermaid
 erDiagram
-    SCHOOL ||--o{ CLASS_TABLE : "school_id"
-    CLASS_TABLE ||--o{ STUDENT : "class_id"
+    SCHOOL ||--o{ CLASS : "school_id"
+    CLASS ||--o{ STUDENT : "class_id"
     SCHOOL ||--o{ TEACHER : "school_id"
+    CLASS ||--o{ TEACHER : "class_id"
     STUDENT ||--o{ RESPONSE : "student_id"
-    QUESTION ||--o{ ANSWER : "question_id"
     RESPONSE ||--o{ ANSWER : "response_id"
+    QUESTION ||--o{ ANSWER : "question_id"
     SCHOOL {
         INTEGER id PK
         TEXT name
     }
-    CLASS_TABLE {
+    CLASS {
         INTEGER id PK
         INTEGER school_id FK
         TEXT name
@@ -61,18 +77,25 @@ erDiagram
         INTEGER class_id FK
         TEXT name
         TEXT username
+        TEXT email
+        TEXT password_hash
+        INTEGER age
     }
     TEACHER {
         INTEGER id PK
         INTEGER school_id FK
+        INTEGER class_id FK
         TEXT name
         TEXT username
+        TEXT email
+        TEXT password_hash
         TEXT role
     }
     QUESTION {
         INTEGER id PK
         TEXT text
         TEXT category
+        TEXT style
         INTEGER active
     }
     RESPONSE {
@@ -81,145 +104,46 @@ erDiagram
         TEXT period
         TEXT submitted_at
         TEXT comment
+        TEXT wishes
+        TEXT classroom
     }
     ANSWER {
         INTEGER id PK
         INTEGER response_id FK
         INTEGER question_id FK
         INTEGER value
+        TEXT note
     }
 ```
 
 ## Eksempel på dataudveksling
 
-Læreren henter det samlede resultat for 5.A (seneste uge med mindst 3 besvarelser):
+Læreren Lise (7.B) åbner Emma Jensens elevprofil:
 
 ```bash
-curl -X GET http://localhost:5106/api/results?class_id=1
+curl http://localhost:5106/api/students/6/profile -H 'X-User-Id: lærer:1'
 ```
 
-Svar `200`:
+Svar `200` (forkortet):
 
 ```json
 {
-  "period": "2026-W39",
-  "periods": [
-    "2026-W36",
-    "2026-W37",
-    "… (forkortet)"
-  ],
-  "hidden": false,
-  "respondents": 5,
-  "overall": {
-    "answers": 40,
-    "average": 3.27,
-    "positive_pct": 42,
-    "negative_pct": 15,
-    "distribution": {
-      "1": 2,
-      "2": 12,
-      "3": 42,
-      "4": 40,
-      "5": 2
-    }
-  },
-  "categories": {
-    "trivsel": {
-      "answers": 10,
-      "average": 3.3,
-      "positive_pct": 50,
-      "negative_pct": 20,
-      "distribution": {
-        "1": 0,
-        "2": 20,
-        "3": 30,
-        "4": 50,
-        "5": 0
-      }
-    },
-    "læring": {
-      "answers": 10,
-      "average": 3.2,
-      "positive_pct": 30,
-      "negative_pct": 20,
-      "distribution": {
-        "1": 0,
-        "2": 20,
-        "3": 50,
-        "4": 20,
-        "5": 10
-      }
-    },
-    "møbler": {
-      "answers": 10,
-      "average": 3.3,
-      "positive_pct": 40,
-      "negative_pct": 10,
-      "distribution": {
-        "1": 0,
-        "2": 10,
-        "3": 50,
-        "4": 40,
-        "5": 0
-      }
-    },
-    "miljø": {
-      "answers": 10,
-      "average": 3.3,
-      "positive_pct": 50,
-      "negative_pct": 10,
-      "distribution": {
-        "1": 10,
-        "2": 0,
-        "3": 40,
-        "4": 50,
-        "5": 0
-      }
-    }
-  },
-  "questions": [
-    {
-      "id": 3,
-      "text": "Jeg kan koncentrere mig i timerne",
-      "category": "læring",
-      "active": 1,
-      "answers": 5,
-      "average": 3.4,
-      "positive_pct": 40,
-      "negative_pct": 20,
-      "distribution": {
-        "1": 0,
-        "2": 20,
-        "3": 40,
-        "4": 20,
-        "5": 20
-      }
-    },
-    {
-      "id": 4,
-      "text": "Jeg forstår, hvad jeg skal lave i timerne",
-      "category": "læring",
-      "active": 1,
-      "answers": 5,
-      "average": 3.0,
-      "positive_pct": 20,
-      "negative_pct": 20,
-      "distribution": {
-        "1": 0,
-        "2": 20,
-        "3": 60,
-        "4": 20,
-        "5": 0
-      }
-    },
-    "… (forkortet)"
-  ],
-  "comments": [
-    "Stolene er hårde",
-    "Jeg kan godt lide de nye sækkestole"
+  "student": { "id": 6, "name": "Emma Jensen", "class_name": "7.B", "age": 13 },
+  "learning_style": "Visuel + Praktisk",
+  "work_pace": "Langsomt/moderat",
+  "wellbeing_score": 8,
+  "classroom_score": 5,
+  "wishes": "Planter og bedre lys i klassen",
+  "classroom": "Jeg kan godt lide læsehjørnet",
+  "latest_period": "2026-09",
+  "months": [
+    { "period": "2026-08", "categories": { "trivsel": { "positive_pct": 100 }, "læring": { "positive_pct": 100 }, "møbler": { "positive_pct": 50 }, "miljø": { "positive_pct": 0 } } },
+    { "period": "2026-09", "categories": { "trivsel": { "positive_pct": 67 }, "læring": { "positive_pct": 100 }, "møbler": { "positive_pct": 0 }, "miljø": { "positive_pct": 0 } } }
   ]
 }
 ```
+
+En anden lærers elev giver `403`, og virksomheden får også `403`, fordi den kun ser anonyme besvarelser.
 
 ## Kør prototypen
 
@@ -292,15 +216,20 @@ Den fulde endepunktsliste står i [`backend/README.md`](backend/README.md).
 
 ## Testdata og testbrugere
 
-| Rolle | Brugernavne |
-|---|---|
-| Elev 5.A | `emma`, `noah`, `ida`, `oscar`, `freja` |
-| Elev 7.B | `william`, `alma`, `karl`, `clara`, `malik` |
-| Lærer / administrator | `lise` / `anna` |
+Alle testbrugere har adgangskoden **`learnify`**.
 
-8 spørgsmål (2 pr. kategori) og besvarelser for uge 36–39. I 5.A bliver møbler og miljø bedre over tid, så udviklingen kan ses.
-De aktuelle ugers besvarelser kan afgives af eleverne selv.
+| Rolle | E-mail | Bemærkning |
+|---|---|---|
+| Elev 7.B | `emma@elev.learnify.dk` | Emma Jensen, 13 år (eksemplet fra ændringsdokumentet). Også `william@`, `alma@`, `karl@` og `malik@elev.learnify.dk` |
+| Elev 5.A | `noah@elev.learnify.dk` | Også `ida@`, `oscar@`, `freja@` og `sofia@elev.learnify.dk` |
+| Lærer 7.B | `lise@learnify.dk` | Ser kun 7.B |
+| Lærer 5.A | `mads@learnify.dk` | Ser kun 5.A |
+| Virksomhed | `anna@laeringsrum.dk` | Læringsrum 2.0 |
+
+13 spørgsmål (9 om trivsel, læring, møbler og miljø og 4 om arbejdsstil). Besvarelser for august og september 2026 med uddybninger, ønsker og holdning til klasselokalet. I 5.A bliver møbler og miljø bedre.
+Månedens test for den aktuelle måned kan eleverne selv tage.
 
 ## Afgrænsning
 
-Login uden adgangskode. Ingen lærer–klasse-kobling (en lærer ser alle klasser) og ingen eksport af rapporter.
+Adgangskoder hashes, men der er ingen rigtig session eller token. Brugeren sendes i headeren `X-User-Id`, og "Glemt adgangskode?" viser kun en besked. Ingen eksport af rapporter.
+Læringsstil og arbejdstempo beregnes ud fra elevens egne svar og er et udgangspunkt for lærerens vurdering, ikke en diagnose.

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LoopAAS – New Loop</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <style>:root { --brand: #0f7b6c; --brand-dark: #0a5a4f; --brand-soft: #e2f4f0; }</style>
+  <style>
+    .balance { text-align: center; }
+    .balance .points { font-size: 3.4rem; font-weight: 800; color: var(--brand-dark); line-height: 1; }
+    .balance .unit { color: var(--muted); }
+    .cta { width: 100%; font-size: 1.15rem; padding: 14px; margin-top: 12px; }
+    .level-bar { height: 12px; background: var(--border); border-radius: 999px; overflow: hidden; margin: 6px 0; }
+    .level-bar span { display: block; height: 100%; background: linear-gradient(90deg, var(--brand), #3cc4a6); }
+    .badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+    .badge-card { text-align: center; padding: 12px 6px; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface); }
+    .badge-card .icon { font-size: 2rem; }
+    .badge-card.locked { opacity: 0.4; filter: grayscale(1); }
+    .badge-card small { display: block; color: var(--muted); }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .result { text-align: center; padding: 20px; border-radius: var(--radius); }
+    .result.ok { background: #e3f3e4; }
+    .result.error { background: #fde4e4; color: var(--danger); }
+    .result .plus { font-size: 2.6rem; font-weight: 800; color: var(--ok); }
+    .rewards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+    .reward .cost { font-size: 1.4rem; font-weight: 800; color: var(--brand-dark); }
+    .code { font-family: ui-monospace, monospace; font-size: 1.6rem; letter-spacing: 0.08em; font-weight: 700; }
+    .history-row { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .history-row .pts { font-weight: 800; white-space: nowrap; }
+    .history-row .pts.plus { color: var(--ok); }
+    .history-row .pts.minus { color: var(--danger); }
+    @media (max-width: 600px) { .tabs button { padding: 14px 10px; } button { min-height: 44px; } }
+  </style>
+</head>
+<body data-api-port="5112">
+  <header>
+    <div>
+      <h1>♻️ LoopAAS</h1>
+      <p>Returnér New Loop-emballage – optjen LoopPoints – få rewards</p>
+    </div>
+    <label style="color:#fff">Bruger
+      <select id="user-select"></select>
+    </label>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="me">Min side</button>
+    <button data-tab="return">Returnér</button>
+    <button data-tab="rewards">Rewards</button>
+    <button data-tab="history">Historik</button>
+    <button data-tab="partner">Samarbejdspartner</button>
+    <button data-tab="newloop">New Loop</button>
+  </nav>
+
+  <main>
+    <!-- Min side: pointsaldo, niveau og badges -->
+    <section class="tab active" id="tab-me">
+      <div class="grid wide">
+        <div class="card balance">
+          <div class="muted" id="hello"></div>
+          <div class="points" id="points">–</div>
+          <div class="unit">LoopPoints</div>
+          <button class="cta" id="return-cta">♻️ Returnér emballage</button>
+        </div>
+        <div class="card">
+          <h2 id="level-title">Niveau</h2>
+          <div class="level-bar"><span id="level-bar"></span></div>
+          <p class="muted" id="level-text"></p>
+          <div class="kpis" id="me-kpis"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Badges</h2>
+        <div class="badges" id="badges"></div>
+      </div>
+    </section>
+
+    <!-- Returnering: scan eller skriv koden på emballagen -->
+    <section class="tab" id="tab-return">
+      <div class="card">
+        <h2>Returnér emballage</h2>
+        <form id="return-form">
+          <label>Kode på emballagen (QR) <input name="code" required placeholder="NL-K1056" autocomplete="off" style="font-size:1.2rem;text-transform:uppercase"></label>
+          <label>Hvor afleverer du? <select name="location_id" data-number required></select></label>
+          <button class="cta">Registrér returnering</button>
+        </form>
+        <p class="muted" style="margin-top:12px">Eksempelkoder fra testdata (emballager, der ikke er returneret endnu):</p>
+        <div class="chips" id="open-codes"></div>
+      </div>
+      <div id="return-result"></div>
+    </section>
+
+    <section class="tab" id="tab-rewards">
+      <p class="muted" id="reward-balance"></p>
+      <div class="rewards" id="rewards"></div>
+      <div id="redeem-result"></div>
+    </section>
+
+    <section class="tab" id="tab-history">
+      <div id="active-codes"></div>
+      <div class="card">
+        <h2>Historik</h2>
+        <div id="history"></div>
+      </div>
+    </section>
+
+    <!-- Samarbejdspartner: bekræft koder og administrér egne rewards -->
+    <section class="tab" id="tab-partner">
+      <div class="card">
+        <label>Samarbejdspartner <select id="partner-select"></select></label>
+        <form id="verify-form" class="toolbar" style="margin-top:12px">
+          <label style="flex:1">Kundens kode <input name="code" required placeholder="LOOP-XXXX" style="text-transform:uppercase"></label>
+          <button>Godkend kode</button>
+        </form>
+        <div id="verify-result"></div>
+      </div>
+      <div class="card">
+        <h2>Rewards</h2>
+        <form id="reward-form">
+          <input type="hidden" name="id">
+          <div class="row">
+            <label>Partner <select name="partner_id" data-number required></select></label>
+            <label>Navn <input name="name" required></label>
+            <label>Point <input type="number" name="points_required" min="1" required></label>
+          </div>
+          <div class="row">
+            <label>Beskrivelse <input name="description"></label>
+            <label>Antal på lager (tom = ubegrænset) <input type="number" name="stock" min="0"></label>
+            <label>Aktiv <select name="active" data-number><option value="1">Ja</option><option value="0">Nej</option></select></label>
+          </div>
+          <div class="actions"><button>Gem reward</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
+        </form>
+        <div id="reward-table"></div>
+      </div>
+    </section>
+
+    <!-- New Loop: nøgletal, partnere og pointsatser -->
+    <section class="tab" id="tab-newloop">
+      <div class="kpis" id="stats-kpis"></div>
+      <div class="grid wide">
+        <div class="card"><h2>Flest returneringer (30 dage)</h2><ol id="leaderboard"></ol></div>
+        <div class="card"><h2>Indløsninger pr. partner</h2><div id="partner-stats"></div></div>
+      </div>
+      <div class="grid wide">
+        <div class="card">
+          <h2>Samarbejdspartnere</h2>
+          <form id="partner-form">
+            <input type="hidden" name="id">
+            <div class="row">
+              <label>Navn <input name="name" required></label>
+              <label>Kategori <input name="category" required placeholder="Café"></label>
+            </div>
+            <label>Adresse <input name="address"></label>
+            <div class="actions"><button>Gem partner</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
+          </form>
+          <div id="partner-table"></div>
+        </div>
+        <div class="card">
+          <h2>Pointsatser og grænser</h2>
+          <form id="setting-form" class="toolbar">
+            <input type="hidden" name="id">
+            <label>Nøgle <input name="key" readonly></label>
+            <label>Værdi <input type="number" name="value" required></label>
+            <button>Gem</button>
+          </form>
+          <div id="setting-table"></div>
+          <h2 style="margin-top:16px">Brugere</h2>
+          <form id="user-form" class="toolbar">
+            <input type="hidden" name="id">
+            <label>Navn <input name="name" required></label>
+            <label>E-mail <input type="email" name="email" required></label>
+            <button>Opret bruger</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <details class="card">
+      <summary>Seneste JSON-svar fra API'et</summary>
+      <pre id="last-response" class="json">Ingen kald endnu</pre>
+    </details>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script src="api.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

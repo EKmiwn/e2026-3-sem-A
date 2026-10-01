@@ -12,12 +12,13 @@ Hver gruppemappe indeholder en prototype bygget ud fra gruppens kravspecifikatio
 | 3 | Amitylux | Experience Compass: højst tre forklarede oplevelsesforslag og struktureret overlevering (engelsk UI) | 5103 | :8003 | [DOCS](3-Amitylux/DOCS.md) · [API](3-Amitylux/backend/README.md) |
 | 4 | AGC | QC-informationshub med godkendelse og deling samt Leverancer & Prioritering | 5104 | :8004 | [DOCS](4-AGC/DOCS.md) · [API](4-AGC/backend/README.md) |
 | 5 | Solum | Fejlfindingsguides, vidensartikler og kompetenceoverblik | 5105 | :8005 | [DOCS](5-Solum/DOCS.md) · [API](5-Solum/backend/README.md) |
-| 6 | Learnify | Elevevaluering af trivsel og læringsmiljø med resultater over tid | 5106 | :8006 | [DOCS](6-Learnify/DOCS.md) · [API](6-Learnify/backend/README.md) |
+| 6 | Learnify | Månedlig elevevaluering med login (elev/lærer/virksomhed), elevprofil, lærerens overblik pr. elev og filtrering for virksomheden | 5106 | :8006 | [DOCS](6-Learnify/DOCS.md) · [API](6-Learnify/backend/README.md) |
 | 7 | Boliga | Insight Hub med samlet boligdata og AI-sparringspartner | 5107 | :8007 | [DOCS](7-Boliga/DOCS.md) · [API](7-Boliga/backend/README.md) |
 | 8 | JOE | Pant på kopper: kop-kode, retur og point i appen | 5108 | :8008 | [DOCS](8-JOE/DOCS.md) · [API](8-JOE/backend/README.md) |
 | 9 | Den Sidste Rejse | Lagerfunktion i EG med historik og genbestillingsliste | 5109 | :8009 | [DOCS](9-Den-Sidste-Rejse/DOCS.md) · [API](9-Den-Sidste-Rejse/backend/README.md) |
-| 10 | Ejner Hessel | Min Hessel: biler, service, reparationsstatus, booking og dokumenter | 5110 | :8010 | [DOCS](10-Ejner-Hessel/DOCS.md) · [API](10-Ejner-Hessel/backend/README.md) |
+| 10 | Ejner Hessel | Min Hessel: biler med billeder, booking i trin, reparationsstatus, dokumenter, forbrug og klima samt separat medarbejdervisning | 5110 | :8010 | [DOCS](10-Ejner-Hessel/DOCS.md) · [API](10-Ejner-Hessel/backend/README.md) |
 | 11 | Sunny AI | Ugeplan for produktion, råvaremangler, lageropslag og regelbaseret assistent | 5111 | :8011 | [DOCS](11-Sunny-AI/DOCS.md) · [API](11-Sunny-AI/backend/README.md) |
+| 12 | NewLoop | LoopAAS: returnér emballage, optjen LoopPoints, niveauer og badges, rewards hos partnere | 5112 | – (ikke deployet endnu) | [DOCS](12-NewLoop/DOCS.md) · [API](12-NewLoop/backend/README.md) |
 
 - **`DOCS.md`** beskriver prototypen: krav, forretningsregler, ER-diagram og testdata.
 - **`backend/README.md`** viser alle API-endepunkter.
@@ -50,14 +51,56 @@ Flask serverer frontenden på `/` og API'et på `/api/...` fra samme adresse.
 
 ## Kør lokalt
 
+Kræver Python 3.10 eller nyere. Kommandoerne køres fra projektets `backend`-mappe, fx `1-StockUP/backend`.
+
+### Mac og Linux (Terminal)
+
 ```bash
 cd 1-StockUP/backend
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-python app.py                  # åbn http://localhost:5101
+python3 -m venv .venv                # første gang
+source .venv/bin/activate
+pip install -r requirements.txt      # første gang
+python app.py                        # åbn http://localhost:5101
 ```
 
-Databasen oprettes med testdata ved første start. Nulstil den med `python database.py --reset`.
+### Windows (PowerShell)
+
+```powershell
+cd 1-StockUP\backend
+py -m venv .venv                     # første gang
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt      # første gang
+python app.py                        # åbn http://localhost:5101
+```
+
+Giver `Activate.ps1` fejlen *"running scripts is disabled on this system"*, så tillad lokale scripts én gang med
+`Set-ExecutionPolicy -Scope CurrentUser RemoteSigned` og prøv igen.
+
+### Windows (Kommandoprompt / cmd)
+
+```bat
+cd 1-StockUP\backend
+py -m venv .venv
+.venv\Scripts\activate.bat
+pip install -r requirements.txt
+python app.py
+```
+
+Er `py` ikke fundet, så installér Python fra [python.org](https://www.python.org/downloads/) og sæt flueben i *"Add python.exe to PATH"*. Brug derefter `python` i stedet for `py`.
+
+### Gælder for alle
+
+- Databasen oprettes med testdata ved første start. Nulstil den med `python database.py --reset`, mens serveren er stoppet.
+- Stop serveren med `Ctrl` + `C`. Deaktivér det virtuelle miljø med `deactivate`.
+- Er porten optaget, bruger serveren automatisk den næste ledige og skriver adressen i terminalen.
+
+| Opgave | Mac og Linux | Windows (PowerShell) | Windows (cmd) |
+|---|---|---|---|
+| Vælg selv port | `PORT=5300 python app.py` | `$env:PORT=5300; python app.py` | `set PORT=5300 && python app.py` |
+| Se hvad der bruger porten | `lsof -nP -iTCP:5101 -sTCP:LISTEN` | `Get-NetTCPConnection -LocalPort 5101` | `netstat -ano \| findstr :5101` |
+| Stop en glemt server | `lsof -t -iTCP:5101 -sTCP:LISTEN \| xargs kill` | `Stop-Process -Id <PID>` | `taskkill /PID <PID> /F` |
+
+Kommandoerne i hvert projekts `DOCS.md` er skrevet til Mac og Linux. På Windows bruges `\` i stier og `.venv\Scripts\` i stedet for `.venv/bin/`.
 
 ## Deployment på DigitalOcean
 

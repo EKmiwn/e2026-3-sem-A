@@ -3,35 +3,112 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Min Hessel</title>
-  <link rel="icon" href="data:,">
+  <title>Min Hessel – Ejner Hessel</title>
+  <link rel="icon" href="logo.svg">
   <link rel="stylesheet" href="style.css">
-  <style>:root { --brand: #003b5c; --brand-dark: #00263d; --brand-soft: #e0edf4; }</style>
+  <!-- Hessel-design: mørk blå, ens knapper og skrift (version 2) -->
+  <style>:root { --brand: #003b5c; --brand-dark: #00263d; --brand-soft: #e3eef5; --bg: #f3f5f7; --accent: #c8102e; --radius: 12px;
+                 font-family: "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif; }</style>
   <style>
+    header { padding: 14px 24px; }
+    header .logo { height: 40px; display: block; }
+    header .title { display: flex; gap: 14px; align-items: center; }
+    header .title p { border-left: 1px solid rgba(255, 255, 255, 0.35); padding-left: 14px; }
+    button { border-radius: 8px; font-weight: 600; letter-spacing: 0.01em; }
+    .tabs button { font-size: 0.95rem; }
+    .card h2, .card h3 { color: var(--brand-dark); }
+    .brand { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+
+    /* Links der ligner knapper (åbn og download dokumenter) */
+    a.btn { display: inline-block; padding: 5px 12px; border-radius: 8px; background: var(--brand); color: #fff; font-weight: 600; font-size: 0.85rem; text-decoration: none; white-space: nowrap; }
+    a.btn.secondary { background: var(--surface); color: var(--brand-dark); border: 1px solid var(--border); }
+
+    /* Bilkort med billede/illustration */
+    .car-card { display: grid; gap: 6px; }
+    .car-img { width: 100%; aspect-ratio: 24 / 11; background: linear-gradient(180deg, #eef3f7, #dfe7ee); border-radius: 10px; display: grid; place-items: center; overflow: hidden; }
+    .car-img svg, .car-img img { width: 92%; height: auto; }
+    .car-img img { object-fit: contain; height: 100%; }
+    .facts { display: flex; flex-wrap: wrap; gap: 6px; }
+    .facts span { background: var(--brand-soft); color: var(--brand-dark); border-radius: 999px; padding: 2px 10px; font-size: 0.8rem; white-space: nowrap; }
+
+    /* Reparationsforløb */
     .progress { display: flex; gap: 4px; margin: 8px 0; }
     .progress span { flex: 1; height: 8px; border-radius: 4px; background: var(--border); }
     .progress span.done { background: var(--brand); }
-    .brand { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+    .timeline { list-style: none; padding: 0; margin: 0; border-left: 3px solid var(--brand-soft); }
+    .timeline li { padding: 6px 0 10px 14px; position: relative; }
+    .timeline li::before { content: ""; position: absolute; left: -8px; top: 10px; width: 12px; height: 12px; border-radius: 50%; background: var(--brand); }
+
+    /* Booking i trin */
+    .steps { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 14px; }
+    .steps span { text-align: center; padding: 6px 4px; border-radius: 8px; background: #e6eaee; color: var(--muted); font-size: 0.8rem; font-weight: 700; }
+    .steps span.active { background: var(--brand); color: #fff; }
+    .steps span.done { background: var(--brand-soft); color: var(--brand-dark); }
+    .choices { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+    .choice { text-align: left; background: #fff; color: var(--text); border: 2px solid var(--border); padding: 12px; font-weight: 400; }
+    .choice:hover { background: var(--brand-soft); color: var(--text); }
+    .choice.selected { border-color: var(--brand); background: var(--brand-soft); }
+    .choice strong { display: block; }
     .slots { display: flex; flex-wrap: wrap; gap: 6px; }
+    .summary dt { color: var(--muted); font-size: 0.85rem; }
+    .summary dd { margin: 0 0 8px; font-weight: 700; }
+
+    /* Forbrug og klima */
+    .bars { display: flex; gap: 8px; align-items: flex-end; height: 160px; position: relative; padding-top: 10px; overflow-x: auto; }
+    .bars .b { display: grid; justify-items: center; gap: 4px; min-width: 44px; }
+    .bars .b span { width: 28px; background: var(--brand); border-radius: 4px 4px 0 0; }
+    .bars .b small { font-size: 0.7rem; color: var(--muted); white-space: nowrap; }
+    .goal-line { position: absolute; left: 0; right: 0; border-top: 2px dashed var(--accent); }
+    .saving { background: #e3f3e4; border-radius: var(--radius); padding: 14px; }
+    .saving .value { font-size: 1.6rem; font-weight: 800; color: var(--ok); }
+
+    /* Læsbare tabeller: datoer, nummerplader og bilnavne brydes ikke */
+    td.nowrap, th.nowrap { white-space: nowrap; }
+    td { min-width: 70px; }
+
+    /* Mobil: alt under hinanden og større trykflader */
+    @media (max-width: 700px) {
+      header { flex-direction: column; align-items: stretch; }
+      header .title p { display: none; }
+      header label, header select { width: 100%; max-width: none; }
+      .tabs { padding: 0 8px; }
+      .tabs button { padding: 14px 12px; }
+      form .row { grid-template-columns: 1fr; }
+      .grid, .grid.wide { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: repeat(5, minmax(56px, 1fr)); }
+      .steps span { font-size: 0.7rem; }
+      button { min-height: 44px; }
+      .choices { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body data-api-port="5110">
   <header>
-    <div>
-      <h1>Min Hessel</h1>
-      <p>Alle dine biler, bookinger og dokumenter ét sted</p>
+    <div class="title">
+      <img class="logo" src="logo.svg" alt="Ejner Hessel">
+      <div>
+        <h1>Min Hessel</h1>
+        <p>Alle dine biler, bookinger og dokumenter ét sted</p>
+      </div>
     </div>
-    <label style="color:#fff">Logget ind som (testkunde)
-      <select id="customer-select"></select>
+    <label style="color:#fff">Logget ind som
+      <select id="view-select"></select>
     </label>
   </header>
 
-  <nav class="tabs">
+  <!-- Kundens navigation -->
+  <nav class="tabs" id="customer-tabs">
     <button class="active" data-tab="cars">Mine biler</button>
     <button data-tab="car">Biloplysninger</button>
     <button data-tab="bookings">Værkstedsbooking</button>
+    <button data-tab="repairs">Reparationsstatus</button>
     <button data-tab="documents">Aftaler og dokumenter</button>
-    <button data-tab="workshop">Værksted (medarbejder)</button>
+    <button data-tab="climate">Forbrug og klima</button>
+  </nav>
+
+  <!-- Medarbejderens navigation (separat visning) -->
+  <nav class="tabs" id="staff-tabs" hidden>
+    <button data-tab="workshop">Værksted</button>
   </nav>
 
   <main>
@@ -44,41 +121,30 @@
       <div id="car-details"><p class="empty">Vælg en bil under "Mine biler".</p></div>
     </section>
 
+    <!-- Booking: bil → værksted → dato → tidspunkt → oversigt -->
     <section class="tab" id="tab-bookings">
-      <div class="grid wide">
-        <div class="card">
-          <h2 id="booking-title">Book tid på værksted</h2>
-          <form id="booking-form">
-            <input type="hidden" name="id">
-            <div class="row">
-              <label>Bil <select name="car_id" data-number required></select></label>
-              <label>Værksted <select name="workshop_id" data-number required></select></label>
-            </div>
-            <div class="row">
-              <label>Type
-                <select name="service_type">
-                  <option>Serviceeftersyn</option><option>Årligt eftersyn</option><option>Hjulskift</option>
-                  <option>Fejlfinding</option><option>Syn</option>
-                </select>
-              </label>
-              <label>Dato <input type="date" name="date" required></label>
-            </div>
-            <label>Tidspunkt <input name="time" readonly required placeholder="Vælg et ledigt tidspunkt nedenfor"></label>
-            <div class="slots" id="slots"></div>
-            <label>Besked til værkstedet <textarea name="notes"></textarea></label>
-            <div class="actions"><button>Gem booking</button><button type="button" class="secondary" data-reset>Ny booking</button></div>
-          </form>
+      <div class="card">
+        <h2 id="booking-title">Book tid på værksted</h2>
+        <div class="steps" id="booking-steps">
+          <span>1. Bil</span><span>2. Værksted</span><span>3. Dato</span><span>4. Tid</span><span>5. Bekræft</span>
         </div>
-        <div class="card">
-          <h2>Mine bookinger</h2>
-          <div id="booking-table"></div>
-        </div>
+        <div id="booking-step"></div>
       </div>
+      <div class="card">
+        <h2>Mine bookinger</h2>
+        <div id="booking-table"></div>
+      </div>
+    </section>
+
+    <section class="tab" id="tab-repairs">
+      <div id="repair-list"></div>
     </section>
 
     <section class="tab" id="tab-documents">
       <div class="card">
         <form class="toolbar" id="doc-filter">
+          <label style="flex:1">Søg <input name="q" type="search" placeholder="fx leasing eller faktura"></label>
+          <label>Bil <select name="car_id"></select></label>
           <label>Kategori
             <select name="category"><option value="">Alle</option><option>Aftale</option><option>Faktura</option>
               <option>Garanti</option><option>Forsikring</option><option>Andet</option></select>
@@ -88,49 +154,53 @@
       </div>
     </section>
 
-    <section class="tab" id="tab-workshop">
-      <div class="grid wide">
-        <div class="card">
-          <h2>Opdatér reparationsstatus</h2>
-          <p class="muted">Medarbejdervisning: ændringer vises med det samme i kundens portal.</p>
-          <div id="repair-table"></div>
-          <h3 style="margin-top:16px">Opret reparation</h3>
-          <form id="repair-form">
-            <input type="hidden" name="id">
-            <label>Bil <select name="car_id" data-number required></select></label>
-            <label>Beskrivelse <input name="description" required></label>
-            <div class="row">
-              <label>Forventet klar <input type="date" name="estimated_ready"></label>
-              <label>Besked til kunden <input name="message"></label>
-            </div>
-            <button>Opret reparation</button>
-          </form>
-        </div>
-        <div class="card">
-          <h2>Registrér service</h2>
-          <form id="service-form">
-            <input type="hidden" name="id">
-            <div class="row">
-              <label>Bil <select name="car_id" data-number required></select></label>
-              <label>Dato <input type="date" name="date" required></label>
-              <label>Type <input name="type" required placeholder="Serviceeftersyn"></label>
-            </div>
-            <div class="row">
-              <label>Værksted <select name="workshop_id" data-number></select></label>
-              <label>Km <input type="number" name="mileage_km"></label>
-              <label>Pris <input type="number" name="price"></label>
-            </div>
-            <label>Beskrivelse <input name="description"></label>
-            <div class="actions"><button>Gem service</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
-          </form>
-        </div>
+    <section class="tab" id="tab-climate">
+      <div class="card">
+        <label>Bil <select id="climate-car"></select></label>
       </div>
+      <div id="climate"></div>
     </section>
 
-    <details class="card">
-      <summary>Seneste JSON-svar fra API'et</summary>
-      <pre id="last-response" class="json">Ingen kald endnu</pre>
-    </details>
+    <!-- Medarbejder: Registrér service øverst, reparationsstatus nedenunder -->
+    <section class="tab" id="tab-workshop">
+      <div class="card">
+        <h2>Registrér service</h2>
+        <form id="service-form">
+          <input type="hidden" name="id">
+          <div class="row">
+            <label>Bil <select name="car_id" data-number required></select></label>
+            <label>Dato <input type="date" name="date" required></label>
+            <label>Type <input name="type" required placeholder="Serviceeftersyn"></label>
+          </div>
+          <div class="row">
+            <label>Værksted <select name="workshop_id" data-number></select></label>
+            <label>Km <input type="number" name="mileage_km"></label>
+            <label>Pris <input type="number" name="price"></label>
+          </div>
+          <label>Beskrivelse <input name="description"></label>
+          <div class="actions"><button>Gem service</button><button type="button" class="secondary" data-reset>Nulstil</button></div>
+        </form>
+      </div>
+      <div class="card">
+        <h2>Opdatér reparationsstatus</h2>
+        <p class="muted">Ændringer og beskeder vises med det samme under kundens "Reparationsstatus".</p>
+        <div id="repair-admin"></div>
+        <h3 style="margin-top:16px">Opret reparation</h3>
+        <form id="repair-form">
+          <input type="hidden" name="id">
+          <div class="row">
+            <label>Bil <select name="car_id" data-number required></select></label>
+            <label>Værksted <select name="workshop_id" data-number></select></label>
+          </div>
+          <label>Beskrivelse <input name="description" required></label>
+          <div class="row">
+            <label>Forventet klar <input type="date" name="estimated_ready"></label>
+            <label>Besked til kunden <input name="message"></label>
+          </div>
+          <button>Opret reparation</button>
+        </form>
+      </div>
+    </section>
   </main>
 
   <div id="toast" class="toast"></div>
